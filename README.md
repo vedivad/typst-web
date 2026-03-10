@@ -8,19 +8,21 @@ For syntax highlighting [codemirror-lang-typst](https://github.com/kxxt/codemirr
 
 ## Installation
 
-```
+```bash
 npm install codemirror-typst-linter
 ```
 
 Peer dependencies:
 
-```
+```bash
 npm install @codemirror/lint @codemirror/state @codemirror/view
 ```
 
 ## Usage
 
 ```ts
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { typstLinter } from 'codemirror-typst-linter';
 
 const view = new EditorView({
@@ -29,6 +31,7 @@ const view = new EditorView({
       typstLinter(),
     ],
   }),
+  parent: document.body
 });
 ```
 
@@ -38,7 +41,7 @@ const view = new EditorView({
 typstLinter({
   // Font URLs passed to the Typst compiler.
   // Defaults to Roboto from jsDelivr.
-  fonts: ['https://example.com/myfont.ttf'],
+  fonts: ['[https://example.com/myfont.ttf](https://example.com/myfont.ttf)'],
 
   // URL to the typst-ts-web-compiler WASM binary.
   // Defaults to the matching version on jsDelivr CDN.
@@ -58,18 +61,20 @@ typstLinter({
 
 ## Bundler setup
 
-By default, the WASM binary is fetched from jsDelivr at runtime, so no bundler configuration is needed.
+By default, the WASM binary is fetched from jsDelivr at runtime, and the Web Worker is instantiated automatically.
 
-If you want to serve the WASM locally, pass `wasmUrl` as shown above and configure your bundler to handle `.wasm` files. With Vite:
+### Serving WASM Locally
+If you want to serve the WASM locally instead of via CDN, pass `wasmUrl` as shown in the options above and configure your bundler to handle `.wasm` files. With Vite, you would need plugins:
 
 ```ts
 // vite.config.ts
+import { defineConfig } from 'vite';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 
-export default {
+export default defineConfig({
   plugins: [wasm(), topLevelAwait()],
-};
+});
 ```
 
 ## License
