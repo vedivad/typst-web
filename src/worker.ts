@@ -1,10 +1,16 @@
-import { createTypstCompiler } from '@myriaddreamin/typst.ts/compiler';
-import type { WorkerRequest, WorkerResponse, DiagnosticMessage } from './types.js';
+import { createTypstCompiler } from "@myriaddreamin/typst.ts/compiler";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+  DiagnosticMessage,
+} from "./types.js";
 
 interface TypstCompiler {
   init(options: unknown): Promise<void>;
   addSource(path: string, source: string): void;
-  withIncrementalServer<T>(f: (server: IncrementalServer) => Promise<T>): Promise<T>;
+  withIncrementalServer<T>(
+    f: (server: IncrementalServer) => Promise<T>,
+  ): Promise<T>;
   compile(options: unknown): Promise<{ diagnostics?: DiagnosticMessage[] }>;
 }
 
@@ -21,11 +27,16 @@ let compiler: TypstCompiler | null = null;
 let incrServer: IncrementalServer | null = null;
 let shutdownResolve: (() => void) | null = null;
 
-async function initCompiler(wasmUrl: string, fontUrls: string[]): Promise<void> {
+async function initCompiler(
+  wasmUrl: string,
+  fontUrls: string[],
+): Promise<void> {
   const fontBuffers = await Promise.all(
-    fontUrls.map(url =>
-      fetch(url).then(r => r.arrayBuffer()).then(buf => new Uint8Array(buf))
-    )
+    fontUrls.map((url) =>
+      fetch(url)
+        .then((r) => r.arrayBuffer())
+        .then((buf) => new Uint8Array(buf)),
+    ),
   );
 
   compiler = createTypstCompiler() as unknown as TypstCompiler;
@@ -41,8 +52,10 @@ async function initCompiler(wasmUrl: string, fontUrls: string[]): Promise<void> 
   });
 
   // Keep the IncrementalServer alive for the lifetime of this worker
-  const serverReady = new Promise<IncrementalServer>(resolve => {
-    const shutdownSignal = new Promise<void>(r => { shutdownResolve = r; });
+  const serverReady = new Promise<IncrementalServer>((resolve) => {
+    const shutdownSignal = new Promise<void>((r) => {
+      shutdownResolve = r;
+    });
 
     compiler!.withIncrementalServer(async (server) => {
       resolve(server);
@@ -54,14 +67,14 @@ async function initCompiler(wasmUrl: string, fontUrls: string[]): Promise<void> 
 }
 
 async function compile(source: string): Promise<DiagnosticMessage[]> {
-  if (!compiler || !incrServer) throw new Error('Compiler not initialized');
+  if (!compiler || !incrServer) throw new Error("Compiler not initialized");
 
-  compiler.addSource('/main.typ', source);
+  compiler.addSource("/main.typ", source);
 
   const result = await compiler.compile({
-    mainFilePath: '/main.typ',
+    mainFilePath: "/main.typ",
     incrementalServer: incrServer,
-    diagnostics: 'full',
+    diagnostics: "full",
   });
 
   return result.diagnostics ?? [];
@@ -70,13 +83,13 @@ async function compile(source: string): Promise<DiagnosticMessage[]> {
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
 
-  if (req.type === 'init') {
+  if (req.type === "init") {
     try {
       await initCompiler(req.wasmUrl, req.fonts);
-      self.postMessage({ type: 'ready', id: req.id } satisfies WorkerResponse);
+      self.postMessage({ type: "ready", id: req.id } satisfies WorkerResponse);
     } catch (err) {
       self.postMessage({
-        type: 'error',
+        type: "error",
         id: req.id,
         message: err instanceof Error ? err.message : String(err),
       } satisfies WorkerResponse);
@@ -84,13 +97,17 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     return;
   }
 
-  if (req.type === 'compile') {
+  if (req.type === "compile") {
     try {
       const diagnostics = await compile(req.source);
-      self.postMessage({ type: 'result', id: req.id, diagnostics } satisfies WorkerResponse);
+      self.postMessage({
+        type: "result",
+        id: req.id,
+        diagnostics,
+      } satisfies WorkerResponse);
     } catch (err) {
       self.postMessage({
-        type: 'error',
+        type: "error",
         id: req.id,
         message: err instanceof Error ? err.message : String(err),
       } satisfies WorkerResponse);
@@ -98,8 +115,8 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     return;
   }
 
-  if (req.type === 'destroy') {
+  if (req.type === "destroy") {
     shutdownResolve?.();
-    self.postMessage({ type: 'ready', id: req.id } satisfies WorkerResponse);
+    self.postMessage({ type: "ready", id: req.id } satisfies WorkerResponse);
   }
 };
