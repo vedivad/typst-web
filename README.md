@@ -1,6 +1,4 @@
-# WORK IN PROGRESS
-
-# codemirror-typst-linter
+# codemirror-typst-linter [experimental]
 
 A CodeMirror 6 extension that shows Typst diagnostics as you type, using [@myriaddreamin/typst.ts](https://github.com/Myriad-Dreamin/typst.ts) for compilation in a Web Worker.
 
@@ -61,10 +59,18 @@ typstLinter({
 
 ## Bundler setup
 
-By default, the WASM binary is fetched from jsDelivr at runtime, and the Web Worker is instantiated automatically.
+Because this package relies on `@myriaddreamin/typst.ts`, which uses modern WebAssembly features, you may need to configure your bundler to support WebAssembly and Top-Level Await. 
 
-### Serving WASM Locally
-If you want to serve the WASM locally instead of via CDN, pass `wasmUrl` as shown in the options above and configure your bundler to handle `.wasm` files. With Vite, you would need plugins:
+By default, the actual `.wasm` binary is fetched from jsDelivr at runtime, but the bundler still needs to understand the syntax during the build step.
+
+### Vite Configuration
+If you are using Vite, you must install `vite-plugin-wasm` and `vite-plugin-top-level-await`:
+
+```bash
+npm install -D vite-plugin-wasm vite-plugin-top-level-await
+```
+
+Then add them to your `vite.config.ts`:
 
 ```ts
 // vite.config.ts
@@ -75,6 +81,15 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 export default defineConfig({
   plugins: [wasm(), topLevelAwait()],
 });
+```
+
+### Serving WASM Locally
+If you want to serve the `.wasm` file locally instead of relying on the CDN, you can download the matching version of `typst_ts_web_compiler_bg.wasm` and pass its local URL to the `wasmUrl` option:
+
+```ts
+typstLinter({
+  wasmUrl: new URL('./assets/typst_ts_web_compiler_bg.wasm', import.meta.url).href
+})
 ```
 
 ## License
