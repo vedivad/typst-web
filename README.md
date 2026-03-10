@@ -1,6 +1,6 @@
 # codemirror-typst-linter
 
-A CodeMirror 6 extension that shows Typst diagnostics as you type, using [@myriaddreamin/typst.ts](https://[github.com/nicolo-ribaudo/typst.ts](https://github.com/Myriad-Dreamin/typst.ts)) for compilation in a Web Worker.
+A CodeMirror 6 extension that shows Typst diagnostics as you type, using [@myriaddreamin/typst.ts](https://github.com/Myriad-Dreamin/typst.ts) for compilation in a Web Worker.
 
 For syntax highlighting [codemirror-lang-typst](https://github.com/kxxt/codemirror-lang-typst) can be used separately.
 
