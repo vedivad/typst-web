@@ -1,10 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { EditorView, basicSetup } from 'codemirror';
-  import { EditorState } from '@codemirror/state';
-  import { oneDark } from '@codemirror/theme-one-dark';
-  import { typst } from 'codemirror-lang-typst';
-  import { typstLinter } from 'codemirror-typst-linter';
+  import Editor from './Editor.svelte';
+  import DiagnosticsPanel from './DiagnosticsPanel.svelte';
+  import type { Diagnostic } from '@codemirror/lint';
 
   const initialDoc = `\
 // Try introducing errors below — squiggles appear instantly.
@@ -16,24 +13,7 @@
 // #let x = 1 + "oops"
 `;
 
-  let container: HTMLDivElement;
-
-  onMount(() => {
-    const view = new EditorView({
-      state: EditorState.create({
-        doc: initialDoc,
-        extensions: [
-          basicSetup,
-          oneDark,
-          typst(),
-          typstLinter(),
-        ],
-      }),
-      parent: container,
-    });
-
-    return () => view.destroy();
-  });
+  let diagnostics = $state<Diagnostic[]>([]);
 </script>
 
 <div class="layout">
@@ -41,7 +21,10 @@
     <h1>codemirror-typst-linter</h1>
     <p>Typst diagnostics with incremental compilation. Edit the document to see errors highlighted in real time.</p>
   </header>
-  <div class="editor" bind:this={container}></div>
+  <div class="main">
+    <Editor {initialDoc} onDiagnostics={(d) => { diagnostics = d; }} />
+    <DiagnosticsPanel {diagnostics} />
+  </div>
 </div>
 
 <style>
@@ -73,24 +56,15 @@
     color: #7ecfff;
   }
 
-  p {
+  header p {
     margin: 0;
     font-size: 0.85rem;
     color: #888;
   }
 
-  .editor {
+  .main {
     flex: 1;
+    display: flex;
     overflow: hidden;
-  }
-
-  :global(.editor .cm-editor) {
-    height: 100%;
-  }
-
-  :global(.editor .cm-scroller) {
-    overflow: auto;
-    font-family: 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
-    font-size: 14px;
   }
 </style>
