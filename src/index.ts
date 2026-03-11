@@ -6,6 +6,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "./types.js";
+declare const __WORKER_CODE__: string;
 
 const DEFAULT_FONTS = [
   "https://cdn.jsdelivr.net/npm/roboto-font@0.1.0/fonts/Roboto/roboto-regular-webfont.ttf",
@@ -83,9 +84,8 @@ function toCMDiagnostic(state: EditorState, d: DiagnosticMessage): Diagnostic {
 }
 
 function createWorker(): Worker {
-  return new Worker(new URL("./worker.js", import.meta.url), {
-    type: "module",
-  });
+  const blob = new Blob([__WORKER_CODE__], { type: "application/javascript" });
+  return new Worker(URL.createObjectURL(blob));
 }
 
 function workerRpc(

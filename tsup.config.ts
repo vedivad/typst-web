@@ -1,4 +1,15 @@
 import { defineConfig } from "tsup";
+import { build } from "esbuild";
+
+const { outputFiles } = await build({
+  entryPoints: ["src/worker.ts"],
+  bundle: true,
+  format: "iife",
+  write: false,
+  minify: true,
+});
+
+const workerCode = outputFiles[0].text;
 
 export default defineConfig([
   {
@@ -8,6 +19,7 @@ export default defineConfig([
     sourcemap: true,
     clean: true,
     external: ["@codemirror/lint", "@codemirror/state", "@codemirror/view"],
+    define: { __WORKER_CODE__: JSON.stringify(workerCode) },
   },
   {
     entry: { worker: "src/worker.ts" },
