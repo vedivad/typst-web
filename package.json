@@ -1,5 +1,8 @@
 {
   "name": "codemirror-typst-linter",
+  "workspaces": [
+    "demo"
+  ],
   "version": "0.1.92",
   "description": "CodeMirror 6 extension for Typst diagnostics with incremental compilation",
   "type": "module",
@@ -35,6 +38,7 @@
     "@codemirror/lint": "^6.9.5",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
+    "esbuild": "^0.27.3",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3"
   },

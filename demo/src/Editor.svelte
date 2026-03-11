@@ -4,7 +4,7 @@
   import { EditorState } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { typst } from 'codemirror-lang-typst';
-  import { typstLinter } from 'codemirror-typst-linter';
+  import { typstLinter, TypstService } from 'codemirror-typst-linter';
   import type { Diagnostic } from '@codemirror/lint';
 
   interface Props {
@@ -17,6 +17,10 @@
   let container: HTMLDivElement;
 
   onMount(() => {
+    const service = new TypstService(
+      new Worker(new URL('codemirror-typst-linter/worker', import.meta.url), { type: 'module' }),
+    );
+
     const view = new EditorView({
       state: EditorState.create({
         doc: initialDoc,
@@ -24,13 +28,16 @@
           basicSetup,
           oneDark,
           typst(),
-          typstLinter({ onDiagnostics }),
+          typstLinter(service, { onDiagnostics }),
         ],
       }),
       parent: container,
     });
 
-    return () => view.destroy();
+    return () => {
+      view.destroy();
+      service.destroy();
+    };
   });
 </script>
 

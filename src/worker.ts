@@ -1,22 +1,23 @@
-import { createTypstCompiler } from "@myriaddreamin/typst.ts/compiler";
+import {
+  createTypstCompiler,
+  type TypstCompiler,
+} from "@myriaddreamin/typst.ts/compiler";
+
+import {
+  withPackageRegistry,
+  withAccessModel,
+} from "@myriaddreamin/typst.ts/options.init";
+
 import type {
   WorkerRequest,
   WorkerResponse,
   DiagnosticMessage,
 } from "./types.js";
 
-interface TypstCompiler {
-  init(options: unknown): Promise<void>;
-  addSource(path: string, source: string): void;
-  withIncrementalServer<T>(
-    f: (server: IncrementalServer) => Promise<T>,
-  ): Promise<T>;
-  compile(options: unknown): Promise<{ diagnostics?: DiagnosticMessage[] }>;
-}
-
 interface IncrementalServer {
   reset(): void;
   current(): Uint8Array | undefined;
+  setAttachDebugInfo(enable: boolean): void;
 }
 
 interface FontBuilder {
