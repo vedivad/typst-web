@@ -4,9 +4,13 @@ import {
 } from "@myriaddreamin/typst.ts/compiler";
 
 import {
+  loadFonts,
   withPackageRegistry,
   withAccessModel,
 } from "@myriaddreamin/typst.ts/options.init";
+
+import { FetchPackageRegistry } from "@myriaddreamin/typst.ts/fs/package";
+import { MemoryAccessModel } from "@myriaddreamin/typst.ts/fs/memory";
 
 import type {
   WorkerRequest,
@@ -20,9 +24,8 @@ interface IncrementalServer {
   setAttachDebugInfo(enable: boolean): void;
 }
 
-interface FontBuilder {
-  add_raw_font(buffer: Uint8Array): Promise<void>;
-}
+const accessModel = new MemoryAccessModel();
+const packageRegistry = new FetchPackageRegistry(accessModel);
 
 let compiler: TypstCompiler | null = null;
 let incrServer: IncrementalServer | null = null;
@@ -31,24 +34,14 @@ let shutdownResolve: (() => void) | null = null;
 async function initCompiler(
   wasmUrl: string,
   fontUrls: string[],
+  packages: boolean,
 ): Promise<void> {
-  const fontBuffers = await Promise.all(
-    fontUrls.map((url) =>
-      fetch(url)
-        .then((r) => r.arrayBuffer())
-        .then((buf) => new Uint8Array(buf)),
-    ),
-  );
-
   compiler = createTypstCompiler() as unknown as TypstCompiler;
   await compiler.init({
     getModule: () => wasmUrl,
     beforeBuild: [
-      async (_: unknown, { builder }: { builder: FontBuilder }) => {
-        for (const buf of fontBuffers) {
-          await builder.add_raw_font(buf);
-        }
-      },
+      loadFonts(fontUrls),
+      ...(packages ? [withAccessModel(accessModel), withPackageRegistry(packageRegistry)] : []),
     ],
   });
 
@@ -86,7 +79,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 
   if (req.type === "init") {
     try {
-      await initCompiler(req.wasmUrl, req.fonts);
+      await initCompiler(req.wasmUrl, req.fonts, req.packages);
       self.postMessage({ type: "ready", id: req.id } satisfies WorkerResponse);
     } catch (err) {
       self.postMessage({
@@ -106,6 +99,28 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         id: req.id,
         diagnostics,
       } satisfies WorkerResponse);
+    } catch (err) {
+      self.postMessage({
+        type: "error",
+        id: req.id,
+        message: err instanceof Error ? err.message : String(err),
+      } satisfies WorkerResponse);
+    }
+    return;
+  }
+
+  if (req.type === "render") {
+    try {
+      if (!compiler) throw new Error("Compiler not initialized");
+      compiler.addSource("/main.typ", req.source);
+      const result = await compiler.compile({
+        mainFilePath: "/main.typ",
+        format: 1, // PDF
+        diagnostics: "none",
+      } as Parameters<typeof compiler.compile>[0]);
+      if (!result.result) throw new Error("Compilation produced no output");
+      const data = result.result.buffer;
+      self.postMessage({ type: "pdf", id: req.id, data } satisfies WorkerResponse, [data]);
     } catch (err) {
       self.postMessage({
         type: "error",

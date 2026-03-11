@@ -7,6 +7,7 @@ const { outputFiles } = await build({
   format: "iife",
   write: false,
   minify: true,
+  external: ["@myriaddreamin/typst-ts-renderer"],
 });
 
 const workerCode = outputFiles[0].text;
@@ -30,5 +31,6 @@ export default defineConfig([
       "@myriaddreamin/typst.ts",
       "@myriaddreamin/typst-ts-web-compiler",
     ],
+    external: ["@myriaddreamin/typst-ts-renderer"],
   },
 ]);

@@ -11,6 +11,11 @@ export interface TypstServiceOptions {
   wasmUrl?: string;
   /** Font URLs to load into the Typst compiler. Defaults to Roboto from jsDelivr. */
   fonts?: string[];
+  /**
+   * Enable fetching @preview/ packages from packages.typst.org on demand.
+   * Default: true.
+   */
+  packages?: boolean;
 }
 
 const DEFAULT_FONTS = [
@@ -44,6 +49,7 @@ export class TypstService {
         id: ++this.idCounter,
         wasmUrl: options.wasmUrl ?? DEFAULT_WASM_URL,
         fonts: options.fonts ?? DEFAULT_FONTS,
+        packages: options.packages ?? true,
       },
       60_000,
     ).then((res) => {
@@ -63,6 +69,15 @@ export class TypstService {
     if (response.type === "result") return response.diagnostics;
     if (response.type === "error") throw new Error(response.message);
     return [];
+  }
+
+  async renderPdf(source: string): Promise<Uint8Array> {
+    await this.ready;
+    const id = ++this.idCounter;
+    const response = await workerRpc(this.worker, { type: "render", id, source }, 60_000);
+    if (response.type === "pdf") return new Uint8Array(response.data);
+    if (response.type === "error") throw new Error(response.message);
+    throw new Error("Unexpected response type");
   }
 
   destroy(): void {

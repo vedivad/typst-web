@@ -9,18 +9,16 @@
 
   interface Props {
     initialDoc: string;
+    service: TypstService;
     onDiagnostics: (diagnostics: Diagnostic[]) => void;
+    onSourceChange: (source: string) => void;
   }
 
-  let { initialDoc, onDiagnostics }: Props = $props();
+  let { initialDoc, service, onDiagnostics, onSourceChange }: Props = $props();
 
   let container: HTMLDivElement;
 
   onMount(() => {
-    const service = new TypstService(
-      new Worker(new URL('codemirror-typst-linter/worker', import.meta.url), { type: 'module' }),
-    );
-
     const view = new EditorView({
       state: EditorState.create({
         doc: initialDoc,
@@ -28,16 +26,16 @@
           basicSetup,
           oneDark,
           typst(),
-          typstLinter(service, { onDiagnostics }),
+          typstLinter(service, { includePackageDiagnostics: true, onDiagnostics }),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) onSourceChange(update.state.doc.toString());
+          }),
         ],
       }),
       parent: container,
     });
 
-    return () => {
-      view.destroy();
-      service.destroy();
-    };
+    return () => view.destroy();
   });
 </script>
 
