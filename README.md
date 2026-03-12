@@ -1,101 +1,13 @@
-# codemirror-typst-linter
+# codemirror-typst-linter [WIP]
 
 A CodeMirror 6 extension that shows Typst diagnostics as you type, using [@myriaddreamin/typst.ts](https://github.com/Myriad-Dreamin/typst.ts) for compilation in a Web Worker.
 
-For syntax highlighting [codemirror-lang-typst](https://github.com/kxxt/codemirror-lang-typst) can be used separately.
+For syntax highlighting [codemirror-lang-typst](https://github.com/kxxt/codemirror-lang-typst) can be used separately for now.
 
 ## Installation
 
 ```bash
 npm install codemirror-typst-linter
-```
-
-Peer dependencies:
-
-```bash
-npm install @codemirror/lint @codemirror/state @codemirror/view
-```
-
-## Usage
-
-```ts
-import { EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import { typstLinter } from 'codemirror-typst-linter';
-
-const view = new EditorView({
-  state: EditorState.create({
-    extensions: [
-      typstLinter(),
-    ],
-  }),
-  parent: document.body
-});
-```
-
-## Options
-
-```ts
-typstLinter({
-  // Font URLs passed to the Typst compiler.
-  // Defaults to Roboto from jsDelivr.
-  fonts: ['https://example.com/myfont.ttf'],
-
-  // URL to the typst-ts-web-compiler WASM binary.
-  // Defaults to the matching version on jsDelivr CDN.
-  // Override for offline support or faster load:
-  wasmUrl: new URL(
-    '@myriaddreamin/typst-ts-web-compiler/pkg/typst_ts_web_compiler_bg.wasm',
-    import.meta.url,
-  ).href,
-
-  // Debounce delay in ms before linting fires after a change. Default: 0.
-  delay: 300,
-
-  // Include diagnostics from imported packages, not just the main file. Default: false.
-  includePackageDiagnostics: false,
-
-  // Optional Web Worker instance. If not provided, one is created automatically
-  // via an inlined blob. Useful for strict CSP environments or sharing a worker
-  // across multiple editors.
-  worker: myWorker,
-
-  // Called after each lint pass with the resulting diagnostics.
-  onDiagnostics: (diagnostics) => {
-    console.log(`${diagnostics.length} issues found`);
-  },
-})
-```
-
-## Bundler setup
-
-The compilation worker is inlined as a blob at build time, so no special worker configuration is needed. However, because this package uses `@myriaddreamin/typst.ts` which relies on WebAssembly and Top-Level Await, your bundler may need additional plugins.
-
-### Vite
-
-```bash
-npm install -D vite-plugin-wasm vite-plugin-top-level-await
-```
-
-```ts
-// vite.config.ts
-import { defineConfig } from 'vite';
-import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
-
-export default defineConfig({
-  plugins: [wasm(), topLevelAwait()],
-});
-```
-
-### Serving WASM locally
-
-By default, the WASM binary is fetched from jsDelivr at runtime. To serve it locally instead:
-
-```ts
-typstLinter({
-  wasmUrl: new URL('./assets/typst_ts_web_compiler_bg.wasm', import.meta.url).href
-})
 ```
 
 ## License
