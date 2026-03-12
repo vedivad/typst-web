@@ -14,7 +14,7 @@ export interface TypstLinterOptions {
   includePackageDiagnostics?: boolean;
   /** Called after each lint pass with the resulting diagnostics. */
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
-  /** Called after each compile with the incremental vector bytes for SVG rendering. */
+  /** Called after each compile with the vector artifact bytes, usable with typst-ts-renderer for SVG rendering. */
   onVector?: (vector: Uint8Array) => void;
 }
 

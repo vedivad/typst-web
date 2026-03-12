@@ -1,7 +1,7 @@
 export interface DiagnosticMessage {
   package: string;
   path: string;
-  severity: string; // 'Error' | 'Warning' | 'Info' from typst.ts
+  severity: "Error" | "Warning" | "Info";
   range: string; // "startLine:startCol-endLine:endCol" (0-indexed)
   message: string;
 }

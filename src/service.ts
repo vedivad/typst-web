@@ -3,7 +3,7 @@ import { createWorker, workerRpc } from "./rpc.js";
 
 export interface CompileResult {
   diagnostics: DiagnosticMessage[];
-  /** Incremental vector bytes from the compiler (for SVG rendering). */
+  /** Vector artifact bytes from the compiler, usable with typst-ts-renderer for SVG rendering. */
   vector?: Uint8Array;
 }
 
