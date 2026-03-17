@@ -41,7 +41,7 @@ const DEFAULT_WASM_URL =
  * Or use createTypstService() for a zero-config setup via an inlined blob worker.
  */
 export class TypstService {
-  private ready: Promise<void>;
+  readonly ready: Promise<void>;
   private idCounter = 0;
 
   constructor(

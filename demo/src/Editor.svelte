@@ -26,7 +26,7 @@
           basicSetup,
           oneDark,
           typst(),
-          typstLinter(service, { includePackageDiagnostics: true, onDiagnostics, onVector }),
+          typstLinter(service, { onDiagnostics, onVector }),
         ],
       }),
       parent: container,

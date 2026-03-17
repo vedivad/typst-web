@@ -3,14 +3,15 @@ import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
 import { TypstWorkerPlugin } from "./plugin.js";
 import { TypstService, createTypstService } from "./service.js";
+import type { TypstServiceOptions } from "./service.js";
 
 export { TypstService, createTypstService };
 export type { TypstServiceOptions, CompileResult } from "./service.js";
 
-export interface TypstLinterOptions {
+export interface TypstLinterOptions extends TypstServiceOptions {
   /** Delay in ms before linting fires after a document change. Default: 0. */
   delay?: number;
-  /** Include diagnostics from imported packages, not just the main file. Default: false. */
+  /** Include diagnostics from imported packages, not just the main file. Default: true. */
   includePackageDiagnostics?: boolean;
   /** Called after each lint pass with the resulting diagnostics. */
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
@@ -18,19 +19,44 @@ export interface TypstLinterOptions {
   onVector?: (vector: Uint8Array) => void;
 }
 
+/**
+ * Create a Typst linter extension for CodeMirror.
+ *
+ * When called without a service, one is created automatically (and destroyed
+ * when the editor view is destroyed):
+ *   typstLinter({ onDiagnostics, onVector })
+ *
+ * When called with an explicit service, the caller manages its lifecycle:
+ *   typstLinter(service, { onDiagnostics, onVector })
+ */
 export function typstLinter(
-  service: TypstService,
-  options: TypstLinterOptions = {},
+  serviceOrOptions?: TypstService | TypstLinterOptions,
+  options?: TypstLinterOptions,
 ): Extension {
-  const delay = options.delay ?? 0;
-  const includePackageDiagnostics = options.includePackageDiagnostics ?? false;
-  const onDiagnostics = options.onDiagnostics;
-  const onVector = options.onVector;
+  let service: TypstService;
+  let ownsService: boolean;
+  let opts: TypstLinterOptions;
+
+  if (serviceOrOptions instanceof TypstService) {
+    service = serviceOrOptions;
+    ownsService = false;
+    opts = options ?? {};
+  } else {
+    opts = serviceOrOptions ?? {};
+    service = createTypstService(opts);
+    ownsService = true;
+  }
+
+  const delay = opts.delay ?? 0;
+  const includePackageDiagnostics = opts.includePackageDiagnostics ?? true;
+  const onDiagnostics = opts.onDiagnostics;
+  const onVector = opts.onVector;
 
   const workerPlugin = ViewPlugin.define(
     () =>
       new TypstWorkerPlugin({
         service,
+        ownsService,
         includePackageDiagnostics,
         onDiagnostics,
         onVector,

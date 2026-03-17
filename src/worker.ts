@@ -99,6 +99,6 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   }
 
   if (req.type === "destroy") {
-    self.postMessage({ type: "ready", id: req.id } satisfies WorkerResponse);
+    self.postMessage({ type: "destroyed", id: req.id } satisfies WorkerResponse);
   }
 };

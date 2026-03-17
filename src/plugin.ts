@@ -5,6 +5,7 @@ import type { TypstService } from "./service.js";
 
 export interface PluginOptions {
   service: TypstService;
+  ownsService: boolean;
   includePackageDiagnostics: boolean;
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
   onVector?: (vector: Uint8Array) => void;
@@ -51,6 +52,6 @@ export class TypstWorkerPlugin {
   }
 
   destroy() {
-    // Service lifecycle is managed by the caller, not the plugin.
+    if (this.options.ownsService) this.options.service.destroy();
   }
 }
