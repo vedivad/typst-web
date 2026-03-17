@@ -42,6 +42,7 @@ const typstExtensions = await createTypstExtensions({
   },
   compiler: {
     renderer: {
+      module: () => import("@myriaddreamin/typst-ts-renderer"),
       onSvg: (svg) => {
         // Hook: called after successful compile with rendered SVG.
         document.querySelector("#preview")!.innerHTML = svg;

@@ -60,12 +60,6 @@
         "tsup": "^8.0.0",
         "typescript": "^5.9.3",
       },
-      "peerDependencies": {
-        "@myriaddreamin/typst-ts-renderer": "^0.7.0-rc2",
-      },
-      "optionalPeers": [
-        "@myriaddreamin/typst-ts-renderer",
-      ],
     },
   },
   "packages": {
