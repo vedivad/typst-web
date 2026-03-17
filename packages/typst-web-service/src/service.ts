@@ -199,7 +199,7 @@ export class TypstService {
   destroy(): void {
     const id = ++this.idCounter;
     workerRpc(this.worker, { type: "destroy", id }, 5_000)
-      .catch(() => {})
+      .catch((err) => console.error("TypstService destroy failed:", err))
       .finally(() => this.worker.terminate());
   }
 }

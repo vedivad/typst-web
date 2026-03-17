@@ -33,9 +33,12 @@ async function initCompiler(wasmUrl: string, fontUrls: string[], packages: boole
   });
 }
 
-function parseRange(range: string): DiagnosticMessage["range"] {
+function parseRange(range: string): DiagnosticMessage["range"] | null {
   const m = range.match(/(\d+):(\d+)-(\d+):(\d+)/);
-  if (!m) return { startLine: 0, startCol: 0, endLine: 0, endCol: 0 };
+  if (!m) {
+    console.warn(`[typst-web-service] Skipping diagnostic with unrecognized range format: ${JSON.stringify(range)}`);
+    return null;
+  }
   return { startLine: +m[1], startCol: +m[2], endLine: +m[3], endCol: +m[4] };
 }
 
@@ -43,11 +46,11 @@ async function compile(source: string): Promise<{ diagnostics: DiagnosticMessage
   if (!compiler) throw new Error("Compiler not initialized");
   compiler.addSource("/main.typ", source);
   const result = await compiler.compile({ mainFilePath: "/main.typ", diagnostics: "full" });
-  const diagnostics: DiagnosticMessage[] = (result.diagnostics ?? []).map((d) => ({
-    ...d,
-    severity: d.severity as DiagnosticMessage["severity"],
-    range: parseRange(d.range),
-  }));
+  const diagnostics: DiagnosticMessage[] = (result.diagnostics ?? []).flatMap((d) => {
+    const range = parseRange(d.range);
+    if (!range) return [];
+    return [{ ...d, severity: d.severity as DiagnosticMessage["severity"], range }];
+  });
   return { diagnostics, vector: result.result ?? undefined };
 }
 
