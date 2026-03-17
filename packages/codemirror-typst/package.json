@@ -19,12 +19,15 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
+    "codemirror-shiki": "^0.3.0",
+    "shiki": "^4.0.2",
     "@vedivad/typst-web-service": "^0.1.0"
   },
   "peerDependencies": {
     "@codemirror/lint": "^6",
     "@codemirror/state": "^6",
-    "@codemirror/view": "^6"
+    "@codemirror/view": "^6",
+    "shiki": "^4"
   },
   "devDependencies": {
     "@codemirror/lint": "^6.9.5",

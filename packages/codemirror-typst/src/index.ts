@@ -4,9 +4,22 @@ import { ViewPlugin } from "@codemirror/view";
 import { TypstWorkerPlugin } from "./plugin.js";
 import { TypstService } from "@vedivad/typst-web-service";
 import type { TypstServiceOptions } from "@vedivad/typst-web-service";
+import { createTypstShikiExtension, createTypstShikiHighlighting, TypstShiki } from "./shiki.js";
+import type { TypstShikiOptions, TypstShikiHighlighting } from "./shiki.js";
 
 export { TypstService };
+export { createTypstShikiExtension };
+export { createTypstShikiHighlighting };
+export { TypstShiki };
 export type { TypstServiceOptions, RendererOptions, CompileResult } from "@vedivad/typst-web-service";
+export type { TypstShikiOptions, TypstShikiHighlighting };
+
+export interface TypstExtensionsOptions {
+  /** Options forwarded to the Typst Shiki highlighting factory. */
+  shiki?: TypstShikiOptions;
+  /** Options forwarded to the Typst linter factory. */
+  linter?: TypstLinterOptions;
+}
 
 export interface TypstLinterOptions extends TypstServiceOptions {
   /**
@@ -53,4 +66,20 @@ export function typstLinter(options: TypstLinterOptions = {}): Extension {
   );
 
   return [workerPlugin, linterExtension, lintGutter()];
+}
+
+/**
+ * Alias for naming consistency with other extension factories.
+ */
+export function createTypstLinter(options: TypstLinterOptions = {}): Extension {
+  return typstLinter(options);
+}
+
+/**
+ * Create the default Typst extension set for CodeMirror.
+ */
+export async function createTypstExtensions(options: TypstExtensionsOptions = {}): Promise<Extension[]> {
+  const shikiExtension = await createTypstShikiExtension(options.shiki);
+  const linterExtension = createTypstLinter(options.linter);
+  return [shikiExtension, linterExtension];
 }

@@ -30,14 +30,26 @@ service.destroy();
 ```ts
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
-import { typst } from "codemirror-lang-typst";
-import { typstLinter } from "@vedivad/codemirror-typst";
+import { createTypstExtensions } from "@vedivad/codemirror-typst";
+
+const typstExtensions = await createTypstExtensions({
+  shiki: {
+    themes: {
+      light: "github-light",
+      dark: "github-dark",
+    },
+    defaultColor: "dark",
+  },
+  linter: {
+    // renderer/onDiagnostics etc
+  },
+});
 
 new EditorView({
   parent: document.querySelector("#app")!,
   state: EditorState.create({
     doc: "= Typst",
-    extensions: [basicSetup, typst(), typstLinter()],
+    extensions: [basicSetup, ...typstExtensions],
   }),
 });
 ```

@@ -16,7 +16,6 @@
     "@codemirror/view": "^6",
     "@myriaddreamin/typst-ts-renderer": "0.7.0-rc2",
     "codemirror": "^6.0.2",
-    "codemirror-lang-typst": "^0.4.0",
     "@vedivad/codemirror-typst": "workspace:*",
     "@vedivad/typst-web-service": "workspace:*"
   },
