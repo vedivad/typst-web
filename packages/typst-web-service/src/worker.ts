@@ -1,4 +1,5 @@
 import {
+  CompileFormatEnum,
   createTypstCompiler,
   type TypstCompiler,
 } from "@myriaddreamin/typst.ts/compiler";
@@ -17,8 +18,6 @@ import type {
   WorkerResponse,
 } from "./types.js";
 
-// typst-ts-web-compiler format enum: 1 = PDF
-const PDF_FORMAT = 1;
 const MAIN_FILE = "/main.typ";
 
 const accessModel = new MemoryAccessModel();
@@ -154,9 +153,9 @@ const enqueueRender = makeQueue<RenderRequest>(async (req) => {
     compiler.addSource(MAIN_FILE, req.source);
     const result = await compiler.compile({
       mainFilePath: MAIN_FILE,
-      format: PDF_FORMAT,
+      format: CompileFormatEnum.pdf,
       diagnostics: "none",
-    } as Parameters<TypstCompiler["compile"]>[0]);
+    });
     if (!result.result) throw new Error("Compilation produced no output");
     const data = transferBuffer(result.result);
     self.postMessage(
