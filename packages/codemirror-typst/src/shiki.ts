@@ -18,7 +18,11 @@ export interface TypstShikiHighlighting {
 export async function createTypstShikiHighlighting(
   options: TypstShikiOptions = {},
 ): Promise<TypstShikiHighlighting> {
-  const { createHighlighter, createJavaScriptRegexEngine, createOnigurumaEngine } = await import("shiki");
+  const {
+    createHighlighter,
+    createJavaScriptRegexEngine,
+    createOnigurumaEngine,
+  } = await import("shiki");
   const { default: shiki } = await import("codemirror-shiki");
 
   const themes = options.themes ?? {
@@ -29,7 +33,11 @@ export async function createTypstShikiHighlighting(
   const fallbackAlias = Object.keys(themes)[0] ?? "dark";
   const resolveTheme = (alias?: string): string => {
     if (alias && themes[alias]) return themes[alias];
-    return themes[options.defaultColor ?? (themes.dark ? "dark" : fallbackAlias)] ?? themes[fallbackAlias] ?? "github-dark";
+    return (
+      themes[options.defaultColor ?? (themes.dark ? "dark" : fallbackAlias)] ??
+      themes[fallbackAlias] ??
+      "github-dark"
+    );
   };
 
   const uniqueThemes = Array.from(new Set(Object.values(themes)));
@@ -54,6 +62,8 @@ export async function createTypstShikiHighlighting(
   };
 }
 
-export async function createTypstShikiExtension(options: TypstShikiOptions = {}): Promise<Extension> {
+export async function createTypstShikiExtension(
+  options: TypstShikiOptions = {},
+): Promise<Extension> {
   return (await createTypstShikiHighlighting(options)).extension;
 }

@@ -1,5 +1,5 @@
-import type { DiagnosticMessage } from "./types.js";
 import { createWorker, workerRpc } from "./rpc.js";
+import type { DiagnosticMessage } from "./types.js";
 
 export interface CompileResult {
   diagnostics: DiagnosticMessage[];
@@ -21,7 +21,11 @@ export type RendererModule = () => Promise<{
 /** Minimal interface for the built TypstRenderer. */
 export interface RendererInstance {
   create_session(): RendererSession;
-  manipulate_data(session: RendererSession, action: string, data: Uint8Array): void;
+  manipulate_data(
+    session: RendererSession,
+    action: string,
+    data: Uint8Array,
+  ): void;
   svg_data(session: RendererSession): string;
 }
 
@@ -111,7 +115,10 @@ export class TypstService {
     this.onSvg = options.renderer?.onSvg;
 
     if (options.renderer) {
-      this.rendererInstance = this.#initRenderer(options.renderer.module, options.renderer.wasmUrl);
+      this.rendererInstance = this.#initRenderer(
+        options.renderer.module,
+        options.renderer.wasmUrl,
+      );
       this.rendererReady = this.rendererInstance.then(() => {});
     }
 
@@ -160,7 +167,9 @@ export class TypstService {
     });
     if (response.type === "cancelled") return { diagnostics: [] };
     if (response.type === "result") {
-      const vector = response.vector ? new Uint8Array(response.vector) : undefined;
+      const vector = response.vector
+        ? new Uint8Array(response.vector)
+        : undefined;
       if (vector) {
         this.lastVector = vector;
         this.#emitSvg(vector);
@@ -194,7 +203,11 @@ export class TypstService {
   async renderPdf(source: string): Promise<Uint8Array> {
     await this.ready;
     const id = ++this.idCounter;
-    const response = await workerRpc(this.worker, { type: "render", id, source }, TIMEOUT.RENDER);
+    const response = await workerRpc(
+      this.worker,
+      { type: "render", id, source },
+      TIMEOUT.RENDER,
+    );
     if (response.type === "cancelled") throw new Error("Render cancelled");
     if (response.type === "pdf") return new Uint8Array(response.data);
     if (response.type === "error") throw new Error(response.message);
@@ -219,4 +232,3 @@ export class TypstService {
       .finally(() => this.worker.terminate());
   }
 }
-

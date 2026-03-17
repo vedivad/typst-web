@@ -7,9 +7,13 @@
   ],
   "scripts": {
     "build": "bun run --cwd packages/typst-web-service build && bun run --cwd packages/codemirror-typst build",
-    "dev": "bun run --filter 'packages/*' dev"
+    "dev": "bun run --filter 'packages/*' dev",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "check": "biome check --write ."
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.7",
     "typescript": "^5.9.3"
   }
 }

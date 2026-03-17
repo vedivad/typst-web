@@ -1,8 +1,8 @@
-import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { createTypstExtensions } from '@vedivad/codemirror-typst';
-import { updateDiagnostics } from './diagnostics';
+import { EditorState } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { createTypstExtensions } from "@vedivad/codemirror-typst";
+import { basicSetup, EditorView } from "codemirror";
+import { updateDiagnostics } from "./diagnostics";
 
 const initialDoc = `\
 // Package imports are fetched on demand from packages.typst.org.
@@ -18,22 +18,22 @@ const initialDoc = `\
 // #let x = 1 + "oops"
 `;
 
-const editorEl = document.getElementById('editor')!;
-const diagnosticsEl = document.getElementById('diagnostics')!;
-const previewEl = document.getElementById('preview')!;
+const editorEl = document.getElementById("editor")!;
+const diagnosticsEl = document.getElementById("diagnostics")!;
+const previewEl = document.getElementById("preview")!;
 
 const typstExtensions = await createTypstExtensions({
   highlighting: {
     themes: {
-      light: 'github-light',
-      dark: 'github-dark',
+      light: "github-light",
+      dark: "github-dark",
     },
-    defaultColor: 'dark',
-    engine: 'javascript',
+    defaultColor: "dark",
+    engine: "javascript",
   },
   compiler: {
     renderer: {
-      module: () => import('@myriaddreamin/typst-ts-renderer'),
+      module: () => import("@myriaddreamin/typst-ts-renderer"),
       onSvg: (svg) => {
         previewEl.innerHTML = `<div class="svg-container">${svg}</div>`;
       },
@@ -45,11 +45,7 @@ const typstExtensions = await createTypstExtensions({
 new EditorView({
   state: EditorState.create({
     doc: initialDoc,
-    extensions: [
-      basicSetup,
-      oneDark,
-      ...typstExtensions,
-    ],
+    extensions: [basicSetup, oneDark, ...typstExtensions],
   }),
   parent: editorEl,
 });

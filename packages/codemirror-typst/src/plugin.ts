@@ -1,7 +1,7 @@
 import type { Diagnostic } from "@codemirror/lint";
-import { EditorView } from "@codemirror/view";
-import { toCMDiagnostic } from "./diagnostics.js";
+import type { EditorView } from "@codemirror/view";
 import type { TypstService } from "@vedivad/typst-web-service";
+import { toCMDiagnostic } from "./diagnostics.js";
 
 export interface PluginOptions {
   service: TypstService;
@@ -27,7 +27,9 @@ export class TypstWorkerPlugin {
 
       if (signal.aborted) return [];
 
-      diagnostics = result.diagnostics.map((d) => toCMDiagnostic(view.state, d));
+      diagnostics = result.diagnostics.map((d) =>
+        toCMDiagnostic(view.state, d),
+      );
     } catch (err) {
       if (signal.aborted) return [];
       diagnostics = [

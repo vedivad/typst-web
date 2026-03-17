@@ -15,14 +15,25 @@ export interface DiagnosticMessage {
 }
 
 export type WorkerRequest =
-  | { type: "init"; id: number; wasmUrl: string; fonts: string[]; packages: boolean }
+  | {
+      type: "init";
+      id: number;
+      wasmUrl: string;
+      fonts: string[];
+      packages: boolean;
+    }
   | { type: "compile"; id: number; source: string }
   | { type: "render"; id: number; source: string }
   | { type: "destroy"; id: number };
 
 export type WorkerResponse =
   | { type: "ready"; id: number }
-  | { type: "result"; id: number; diagnostics: DiagnosticMessage[]; vector?: ArrayBuffer }
+  | {
+      type: "result";
+      id: number;
+      diagnostics: DiagnosticMessage[];
+      vector?: ArrayBuffer;
+    }
   | { type: "pdf"; id: number; data: ArrayBuffer }
   | { type: "cancelled"; id: number }
   | { type: "destroyed"; id: number }

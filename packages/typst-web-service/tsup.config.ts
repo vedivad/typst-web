@@ -1,5 +1,5 @@
-import { defineConfig } from "tsup";
 import { build } from "esbuild";
+import { defineConfig } from "tsup";
 
 const { outputFiles } = await build({
   entryPoints: ["src/worker.ts"],

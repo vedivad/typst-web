@@ -1,17 +1,26 @@
-import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
+import { type Diagnostic, linter, lintGutter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
-import { TypstWorkerPlugin } from "./plugin.js";
-import { TypstService } from "@vedivad/typst-web-service";
 import type { TypstServiceOptions } from "@vedivad/typst-web-service";
-import { createTypstShikiExtension, createTypstShikiHighlighting } from "./shiki.js";
-import type { TypstShikiOptions, TypstShikiHighlighting } from "./shiki.js";
+import { TypstService } from "@vedivad/typst-web-service";
+import { TypstWorkerPlugin } from "./plugin.js";
+import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
+import {
+  createTypstShikiExtension,
+  createTypstShikiHighlighting,
+} from "./shiki.js";
 
-export { TypstService };
-export { createTypstShikiExtension };
-export { createTypstShikiHighlighting };
-export type { TypstServiceOptions, RendererOptions, CompileResult } from "@vedivad/typst-web-service";
-export type { TypstShikiOptions, TypstShikiHighlighting };
+export type {
+  CompileResult,
+  RendererOptions,
+  TypstServiceOptions,
+} from "@vedivad/typst-web-service";
+export type { TypstShikiHighlighting, TypstShikiOptions };
+export {
+  createTypstShikiExtension,
+  createTypstShikiHighlighting,
+  TypstService,
+};
 
 export interface TypstExtensionsOptions {
   /** Options forwarded to the Typst Shiki highlighting factory. */
@@ -42,7 +51,12 @@ export interface TypstLinterOptions extends TypstServiceOptions {
  *   createTypstLinter({ service, onDiagnostics })
  */
 export function createTypstLinter(options: TypstLinterOptions = {}): Extension {
-  const { service: externalService, delay = 0, onDiagnostics, ...serviceOptions } = options;
+  const {
+    service: externalService,
+    delay = 0,
+    onDiagnostics,
+    ...serviceOptions
+  } = options;
   const service = externalService ?? TypstService.create(serviceOptions);
 
   const workerPlugin = ViewPlugin.define(
@@ -70,7 +84,9 @@ export function createTypstLinter(options: TypstLinterOptions = {}): Extension {
 /**
  * Create the default Typst extension set for CodeMirror.
  */
-export async function createTypstExtensions(options: TypstExtensionsOptions = {}): Promise<Extension[]> {
+export async function createTypstExtensions(
+  options: TypstExtensionsOptions = {},
+): Promise<Extension[]> {
   const shikiExtension = await createTypstShikiExtension(options.highlighting);
   const linterExtension = createTypstLinter(options.compiler);
   return [shikiExtension, linterExtension];

@@ -2,7 +2,10 @@ import type { Diagnostic } from "@codemirror/lint";
 import type { EditorState } from "@codemirror/state";
 import type { DiagnosticMessage } from "@vedivad/typst-web-service";
 
-export function toCMDiagnostic(state: EditorState, d: DiagnosticMessage): Diagnostic {
+export function toCMDiagnostic(
+  state: EditorState,
+  d: DiagnosticMessage,
+): Diagnostic {
   const { startLine, startCol, endLine, endCol } = d.range;
   const docLines = state.doc.lines;
 
@@ -20,5 +23,11 @@ export function toCMDiagnostic(state: EditorState, d: DiagnosticMessage): Diagno
   // Ensure the squiggle covers at least one character
   if (from === to && to < len) to += 1;
 
-  return { from, to, severity: d.severity.toLowerCase() as Diagnostic["severity"], message: d.message, source: "typst" };
+  return {
+    from,
+    to,
+    severity: d.severity.toLowerCase() as Diagnostic["severity"],
+    message: d.message,
+    source: "typst",
+  };
 }
