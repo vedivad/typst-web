@@ -1,8 +1,6 @@
 <script lang="ts">
-  import type { Diagnostic } from '@codemirror/lint';
-
   interface Props {
-    diagnostics: Diagnostic[];
+    diagnostics: Array<{ severity: string; message: string }>;
   }
 
   let { diagnostics }: Props = $props();
