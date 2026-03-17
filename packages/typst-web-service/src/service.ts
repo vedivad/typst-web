@@ -7,6 +7,32 @@ export interface CompileResult {
   vector?: Uint8Array;
 }
 
+/**
+ * A dynamic `import()` expression that resolves to the `@myriaddreamin/typst-ts-renderer` module.
+ * Keeps the renderer dependency opt-in — users who only need diagnostics never load the WASM.
+ *
+ * Example:
+ *   renderer: () => import('@myriaddreamin/typst-ts-renderer')
+ */
+export type RendererModule = () => Promise<{
+  default: (wasmUrl?: string) => Promise<void>;
+  TypstRendererBuilder: new () => {
+    build(): Promise<RendererInstance>;
+  };
+}>;
+
+/** Minimal interface for the built TypstRenderer. */
+export interface RendererInstance {
+  create_session(): RendererSession;
+  manipulate_data(session: RendererSession, action: string, data: Uint8Array): void;
+  svg_data(session: RendererSession): string;
+}
+
+/** Minimal interface for a TypstRenderer session. */
+export interface RendererSession {
+  free(): void;
+}
+
 export interface TypstServiceOptions {
   /**
    * URL to the typst-ts-web-compiler WASM binary.
@@ -24,6 +50,19 @@ export interface TypstServiceOptions {
   packages?: boolean;
   /** Called after each compile with the vector artifact bytes, usable with typst-ts-renderer for SVG rendering. */
   onVector?: (vector: Uint8Array) => void;
+  /**
+   * Opt-in SVG preview: pass a dynamic import for the renderer module.
+   * When set, the service initializes the renderer lazily and calls `onSvg`
+   * after each successful compile.
+   *
+   * Example:
+   *   renderer: () => import('@myriaddreamin/typst-ts-renderer')
+   */
+  renderer?: RendererModule;
+  /** URL to the typst-ts-renderer WASM binary. Only used when `renderer` is set. Defaults to jsDelivr CDN. */
+  rendererWasmUrl?: string;
+  /** Called after each compile with the rendered SVG string. Requires `renderer` to be set. */
+  onSvg?: (svg: string) => void;
 }
 
 const DEFAULT_FONTS = [
@@ -32,6 +71,9 @@ const DEFAULT_FONTS = [
 
 const DEFAULT_WASM_URL =
   "https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-web-compiler@0.7.0-rc2/pkg/typst_ts_web_compiler_bg.wasm";
+
+const DEFAULT_RENDERER_WASM_URL =
+  "https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer@0.7.0-rc2/pkg/typst_ts_renderer_bg.wasm";
 
 /**
  * Manages a Typst compiler worker. Create one instance and share it across
@@ -47,6 +89,9 @@ export class TypstService {
   private idCounter = 0;
 
   private onVector?: (vector: Uint8Array) => void;
+  private onSvg?: (svg: string) => void;
+  private rendererReady?: Promise<RendererInstance>;
+
   /** The most recent vector artifact from a compile, if any. */
   lastVector?: Uint8Array;
 
@@ -55,6 +100,12 @@ export class TypstService {
     options: TypstServiceOptions = {},
   ) {
     this.onVector = options.onVector;
+    this.onSvg = options.onSvg;
+
+    if (options.renderer) {
+      this.rendererReady = this.#initRenderer(options.renderer, options.rendererWasmUrl);
+    }
+
     this.ready = workerRpc(
       this.worker,
       {
@@ -71,6 +122,25 @@ export class TypstService {
     });
   }
 
+  async #initRenderer(
+    loadModule: RendererModule,
+    wasmUrl?: string,
+  ): Promise<RendererInstance> {
+    const mod = await loadModule();
+    await mod.default(wasmUrl ?? DEFAULT_RENDERER_WASM_URL);
+    return new mod.TypstRendererBuilder().build();
+  }
+
+  #vectorToSvg(renderer: RendererInstance, vector: Uint8Array): string {
+    const session = renderer.create_session();
+    try {
+      renderer.manipulate_data(session, "reset", vector);
+      return renderer.svg_data(session);
+    } finally {
+      session.free();
+    }
+  }
+
   async compile(source: string): Promise<CompileResult> {
     await this.ready;
     const id = ++this.idCounter;
@@ -85,11 +155,28 @@ export class TypstService {
       if (vector) {
         this.lastVector = vector;
         this.onVector?.(vector);
+        this.#emitSvg(vector);
       }
       return { diagnostics: response.diagnostics, vector };
     }
     if (response.type === "error") throw new Error(response.message);
     return { diagnostics: [] };
+  }
+
+  async #emitSvg(vector: Uint8Array): Promise<void> {
+    if (!this.onSvg || !this.rendererReady) return;
+    const renderer = await this.rendererReady;
+    this.onSvg(this.#vectorToSvg(renderer, vector));
+  }
+
+  /**
+   * Render a vector artifact to an SVG string.
+   * Requires the `renderer` option to be set. Returns null if the renderer is unavailable.
+   */
+  async renderSvg(vector: Uint8Array): Promise<string | null> {
+    if (!this.rendererReady) return null;
+    const renderer = await this.rendererReady;
+    return this.#vectorToSvg(renderer, vector);
   }
 
   async renderPdf(source: string): Promise<Uint8Array> {
