@@ -22,6 +22,8 @@ export interface TypstServiceOptions {
    * Default: true.
    */
   packages?: boolean;
+  /** Called after each compile with the vector artifact bytes, usable with typst-ts-renderer for SVG rendering. */
+  onVector?: (vector: Uint8Array) => void;
 }
 
 const DEFAULT_FONTS = [
@@ -44,10 +46,15 @@ export class TypstService {
   readonly ready: Promise<void>;
   private idCounter = 0;
 
+  private onVector?: (vector: Uint8Array) => void;
+  /** The most recent vector artifact from a compile, if any. */
+  lastVector?: Uint8Array;
+
   constructor(
     private worker: Worker,
     options: TypstServiceOptions = {},
   ) {
+    this.onVector = options.onVector;
     this.ready = workerRpc(
       this.worker,
       {
@@ -74,10 +81,12 @@ export class TypstService {
     });
     if (response.type === "cancelled") return { diagnostics: [] };
     if (response.type === "result") {
-      return {
-        diagnostics: response.diagnostics,
-        vector: response.vector ? new Uint8Array(response.vector) : undefined,
-      };
+      const vector = response.vector ? new Uint8Array(response.vector) : undefined;
+      if (vector) {
+        this.lastVector = vector;
+        this.onVector?.(vector);
+      }
+      return { diagnostics: response.diagnostics, vector };
     }
     if (response.type === "error") throw new Error(response.message);
     return { diagnostics: [] };

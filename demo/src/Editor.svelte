@@ -11,10 +11,9 @@
     initialDoc: string;
     service: TypstService;
     onDiagnostics: (diagnostics: Diagnostic[]) => void;
-    onVector: (vector: Uint8Array) => void;
   }
 
-  let { initialDoc, service, onDiagnostics, onVector }: Props = $props();
+  let { initialDoc, service, onDiagnostics }: Props = $props();
 
   let container: HTMLDivElement;
 
@@ -26,7 +25,7 @@
           basicSetup,
           oneDark,
           typst(),
-          typstLinter(service, { onDiagnostics, onVector }),
+          typstLinter(service, { onDiagnostics }),
         ],
       }),
       parent: container,

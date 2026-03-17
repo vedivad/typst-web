@@ -30,6 +30,7 @@
 
   const service = new TypstService(
     new Worker(new URL('codemirror-typst-linter/worker', import.meta.url), { type: 'module' }),
+    { onVector: applyVector },
   );
   onDestroy(() => service.destroy());
 
@@ -42,6 +43,7 @@
       renderError = err instanceof Error ? err.message : String(err);
     }
 
+    if (service.lastVector) applyVector(service.lastVector);
     ready = true;
   });
 
@@ -71,7 +73,6 @@
         {initialDoc}
         {service}
         onDiagnostics={(d) => { diagnostics = d; }}
-        onVector={applyVector}
       />
     {/if}
     <DiagnosticsPanel {diagnostics} />

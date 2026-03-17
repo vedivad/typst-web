@@ -13,8 +13,6 @@ export interface TypstLinterOptions extends TypstServiceOptions {
   delay?: number;
   /** Called after each lint pass with the resulting diagnostics. */
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
-  /** Called after each compile with the vector artifact bytes, usable with typst-ts-renderer for SVG rendering. */
-  onVector?: (vector: Uint8Array) => void;
 }
 
 /**
@@ -47,7 +45,6 @@ export function typstLinter(
 
   const delay = opts.delay ?? 0;
   const onDiagnostics = opts.onDiagnostics;
-  const onVector = opts.onVector;
 
   const workerPlugin = ViewPlugin.define(
     () =>
@@ -55,7 +52,6 @@ export function typstLinter(
         service,
         ownsService,
         onDiagnostics,
-        onVector,
       }),
     {},
   );

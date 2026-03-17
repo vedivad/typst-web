@@ -7,7 +7,6 @@ export interface PluginOptions {
   service: TypstService;
   ownsService: boolean;
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
-  onVector?: (vector: Uint8Array) => void;
 }
 
 export class TypstWorkerPlugin {
@@ -25,8 +24,6 @@ export class TypstWorkerPlugin {
       const result = await this.options.service.compile(source);
 
       if (mySeq !== this.seq) return [];
-
-      if (result.vector) this.options.onVector?.(result.vector);
 
       diagnostics = result.diagnostics.map((d) => toCMDiagnostic(view.state, d));
     } catch (err) {
