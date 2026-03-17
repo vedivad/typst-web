@@ -56,7 +56,7 @@ The demo serves from `demo/` and is useful for validating diagnostics + SVG prev
 ### `typst-web-service`
 
 ```ts
-import { TypstService } from "typst-web-service";
+import { TypstService } from "@vedivad/typst-web-service";
 
 const service = TypstService.create();
 await service.ready;
@@ -73,7 +73,7 @@ service.destroy();
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { typst } from "codemirror-lang-typst";
-import { typstLinter } from "codemirror-typst";
+import { typstLinter } from "@vedivad/codemirror-typst";
 
 new EditorView({
   parent: document.querySelector("#app")!,

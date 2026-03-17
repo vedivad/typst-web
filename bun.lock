@@ -17,10 +17,10 @@
         "@codemirror/theme-one-dark": "^6.1.2",
         "@codemirror/view": "^6",
         "@myriaddreamin/typst-ts-renderer": "0.7.0-rc2",
+        "@vedivad/codemirror-typst": "workspace:*",
+        "@vedivad/typst-web-service": "workspace:*",
         "codemirror": "^6.0.2",
         "codemirror-lang-typst": "^0.4.0",
-        "codemirror-typst": "workspace:*",
-        "typst-web-service": "workspace:*",
       },
       "devDependencies": {
         "vite": "^7.0.0",
@@ -28,10 +28,10 @@
       },
     },
     "packages/codemirror-typst": {
-      "name": "codemirror-typst",
+      "name": "@vedivad/codemirror-typst",
       "version": "0.1.0",
       "dependencies": {
-        "typst-web-service": "workspace:*",
+        "@vedivad/typst-web-service": "workspace:*",
       },
       "devDependencies": {
         "@codemirror/lint": "^6.9.5",
@@ -47,7 +47,7 @@
       },
     },
     "packages/typst-web-service": {
-      "name": "typst-web-service",
+      "name": "@vedivad/typst-web-service",
       "version": "0.1.0",
       "dependencies": {
         "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
@@ -229,6 +229,10 @@
 
     "@types/estree": ["@types/estree@1.0.8", "", {}, "sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w=="],
 
+    "@vedivad/codemirror-typst": ["@vedivad/codemirror-typst@workspace:packages/codemirror-typst"],
+
+    "@vedivad/typst-web-service": ["@vedivad/typst-web-service@workspace:packages/typst-web-service"],
+
     "acorn": ["acorn@8.16.0", "", { "bin": { "acorn": "bin/acorn" } }, "sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw=="],
 
     "any-promise": ["any-promise@1.3.0", "", {}, "sha512-7UvmKalWRt1wgjL1RrGxoSJW/0QZFIegpeGvZG9kjp8vrRu55XTHbwnqq2GpXm9uLbcuhxm3IqX9OB4MZR1b2A=="],
@@ -242,8 +246,6 @@
     "codemirror": ["codemirror@6.0.2", "", { "dependencies": { "@codemirror/autocomplete": "^6.0.0", "@codemirror/commands": "^6.0.0", "@codemirror/language": "^6.0.0", "@codemirror/lint": "^6.0.0", "@codemirror/search": "^6.0.0", "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.0.0" } }, "sha512-VhydHotNW5w1UGK0Qj96BwSk/Zqbp9WbnyK2W/eVMv4QyF41INRGpjUhFJY7/uDNuudSc33a/PKr4iDqRduvHw=="],
 
     "codemirror-lang-typst": ["codemirror-lang-typst@0.4.0", "", { "dependencies": { "@codemirror/language": "^6.11.2", "@codemirror/state": "^6.5.2", "@codemirror/view": "^6.38.1", "@lezer/common": "^1.2.3", "@lezer/highlight": "^1.2.1" } }, "sha512-jpHz5qQRC3LE48JH+C24qZJAEAhjqRzWA4MFodPaxriz7UwLVuTLCQ672rdDx9ziObBQ2BvHaRIm5/Upz4KoBQ=="],
-
-    "codemirror-typst": ["codemirror-typst@workspace:packages/codemirror-typst"],
 
     "codemirror-typst-demo": ["codemirror-typst-demo@workspace:demo"],
 
@@ -330,8 +332,6 @@
     "tsup": ["tsup@8.5.1", "", { "dependencies": { "bundle-require": "^5.1.0", "cac": "^6.7.14", "chokidar": "^4.0.3", "consola": "^3.4.0", "debug": "^4.4.0", "esbuild": "^0.27.0", "fix-dts-default-cjs-exports": "^1.0.0", "joycon": "^3.1.1", "picocolors": "^1.1.1", "postcss-load-config": "^6.0.1", "resolve-from": "^5.0.0", "rollup": "^4.34.8", "source-map": "^0.7.6", "sucrase": "^3.35.0", "tinyexec": "^0.3.2", "tinyglobby": "^0.2.11", "tree-kill": "^1.2.2" }, "peerDependencies": { "@microsoft/api-extractor": "^7.36.0", "@swc/core": "^1", "postcss": "^8.4.12", "typescript": ">=4.5.0" }, "optionalPeers": ["@microsoft/api-extractor", "@swc/core", "postcss", "typescript"], "bin": { "tsup": "dist/cli-default.js", "tsup-node": "dist/cli-node.js" } }, "sha512-xtgkqwdhpKWr3tKPmCkvYmS9xnQK3m3XgxZHwSUjvfTjp7YfXe5tT3GgWi0F2N+ZSMsOeWeZFh7ZZFg5iPhing=="],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
-
-    "typst-web-service": ["typst-web-service@workspace:packages/typst-web-service"],
 
     "ufo": ["ufo@1.6.3", "", {}, "sha512-yDJTmhydvl5lJzBmy/hyOAA0d+aqCBuwl818haVdYCRrWV84o7YyeVm4QlVHStqNrrJSTb6jKuFAVqAFsr+K3Q=="],
 

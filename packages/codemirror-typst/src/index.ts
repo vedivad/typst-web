@@ -2,11 +2,11 @@ import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
 import { TypstWorkerPlugin } from "./plugin.js";
-import { TypstService } from "typst-web-service";
-import type { TypstServiceOptions } from "typst-web-service";
+import { TypstService } from "@vedivad/typst-web-service";
+import type { TypstServiceOptions } from "@vedivad/typst-web-service";
 
 export { TypstService };
-export type { TypstServiceOptions, RendererOptions, CompileResult } from "typst-web-service";
+export type { TypstServiceOptions, RendererOptions, CompileResult } from "@vedivad/typst-web-service";
 
 export interface TypstLinterOptions extends TypstServiceOptions {
   /**

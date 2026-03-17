@@ -2,7 +2,7 @@ import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { typst } from 'codemirror-lang-typst';
-import { typstLinter, type TypstLinterOptions } from 'codemirror-typst';
+import { typstLinter, type TypstLinterOptions } from '@vedivad/codemirror-typst';
 
 const initialDoc = `\
 // Package imports are fetched on demand from packages.typst.org.

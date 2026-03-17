@@ -1,5 +1,5 @@
 {
-  "name": "typst-web-service",
+  "name": "@vedivad/typst-web-service",
   "version": "0.1.0",
   "description": "Editor-agnostic Typst compilation service running in a Web Worker",
   "type": "module",

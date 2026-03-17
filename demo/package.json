@@ -17,8 +17,8 @@
     "@myriaddreamin/typst-ts-renderer": "0.7.0-rc2",
     "codemirror": "^6.0.2",
     "codemirror-lang-typst": "^0.4.0",
-    "codemirror-typst": "workspace:*",
-    "typst-web-service": "workspace:*"
+    "@vedivad/codemirror-typst": "workspace:*",
+    "@vedivad/typst-web-service": "workspace:*"
   },
   "devDependencies": {
     "vite": "^7.0.0",

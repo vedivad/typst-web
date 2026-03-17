@@ -10,6 +10,6 @@ export default defineConfig({
     "@codemirror/lint",
     "@codemirror/state",
     "@codemirror/view",
-    "typst-web-service",
+    "@vedivad/typst-web-service",
   ],
 });

@@ -1,6 +1,6 @@
 import type { Diagnostic } from "@codemirror/lint";
 import type { EditorState } from "@codemirror/state";
-import type { DiagnosticMessage } from "typst-web-service";
+import type { DiagnosticMessage } from "@vedivad/typst-web-service";
 
 function mapSeverity(raw: DiagnosticMessage["severity"]): Diagnostic["severity"] {
   if (raw === "Warning") return "warning";
