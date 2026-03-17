@@ -157,13 +157,17 @@ export class TypstService {
     }
   }
 
-  async compile(source: string): Promise<CompileResult> {
+  /** Compile a single source string (treated as /main.typ) or a map of files. */
+  async compile(
+    source: string | Record<string, string>,
+  ): Promise<CompileResult> {
     await this.ready;
     const id = ++this.idCounter;
+    const files = typeof source === "string" ? { "/main.typ": source } : source;
     const response = await workerRpc(this.worker, {
       type: "compile",
       id,
-      source,
+      files,
     });
     if (response.type === "cancelled") return { diagnostics: [] };
     if (response.type === "result") {
@@ -200,12 +204,16 @@ export class TypstService {
     return this.#vectorToSvg(renderer, vector);
   }
 
-  async renderPdf(source: string): Promise<Uint8Array> {
+  /** Render to PDF from a single source string (treated as /main.typ) or a map of files. */
+  async renderPdf(
+    source: string | Record<string, string>,
+  ): Promise<Uint8Array> {
     await this.ready;
     const id = ++this.idCounter;
+    const files = typeof source === "string" ? { "/main.typ": source } : source;
     const response = await workerRpc(
       this.worker,
-      { type: "render", id, source },
+      { type: "render", id, files },
       TIMEOUT.RENDER,
     );
     if (response.type === "cancelled") throw new Error("Render cancelled");

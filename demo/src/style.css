@@ -35,6 +35,40 @@ header p {
   overflow: hidden;
 }
 
+/* Editor pane */
+.editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  background: #16213e;
+  border-bottom: 1px solid #333;
+}
+
+.tab {
+  padding: 0.4rem 1rem;
+  background: none;
+  border: none;
+  color: #888;
+  font-family: monospace;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab:hover {
+  color: #ccc;
+}
+
+.tab.active {
+  color: #7ecfff;
+  border-bottom-color: #7ecfff;
+}
+
 /* Editor */
 .editor {
   flex: 1;

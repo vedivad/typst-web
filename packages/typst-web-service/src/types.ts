@@ -22,8 +22,8 @@ export type WorkerRequest =
       fonts: string[];
       packages: boolean;
     }
-  | { type: "compile"; id: number; source: string }
-  | { type: "render"; id: number; source: string }
+  | { type: "compile"; id: number; files: Record<string, string> }
+  | { type: "render"; id: number; files: Record<string, string> }
   | { type: "destroy"; id: number };
 
 export type WorkerResponse =

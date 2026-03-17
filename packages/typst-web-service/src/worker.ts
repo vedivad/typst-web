@@ -54,10 +54,12 @@ function parseRange(range: string): DiagnosticMessage["range"] | null {
 }
 
 async function compile(
-  source: string,
+  files: Record<string, string>,
 ): Promise<{ diagnostics: DiagnosticMessage[]; vector?: Uint8Array }> {
   if (!compiler) throw new Error("Compiler not initialized");
-  compiler.addSource(MAIN_FILE, source);
+  for (const [path, source] of Object.entries(files)) {
+    compiler.addSource(path, source);
+  }
   const result = await compiler.compile({
     mainFilePath: MAIN_FILE,
     diagnostics: "full",
@@ -133,7 +135,7 @@ function makeQueue<T extends { id: number }>(
 
 const enqueueCompile = makeQueue<CompileRequest>(async (req) => {
   try {
-    const { diagnostics, vector: vectorData } = await compile(req.source);
+    const { diagnostics, vector: vectorData } = await compile(req.files);
     const vector = vectorData ? transferBuffer(vectorData) : undefined;
     const msg: WorkerResponse = {
       type: "result",
@@ -150,7 +152,9 @@ const enqueueCompile = makeQueue<CompileRequest>(async (req) => {
 const enqueueRender = makeQueue<RenderRequest>(async (req) => {
   try {
     if (!compiler) throw new Error("Compiler not initialized");
-    compiler.addSource(MAIN_FILE, req.source);
+    for (const [path, source] of Object.entries(req.files)) {
+      compiler.addSource(path, source);
+    }
     const result = await compiler.compile({
       mainFilePath: MAIN_FILE,
       format: CompileFormatEnum.pdf,

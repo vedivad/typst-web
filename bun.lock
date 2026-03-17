@@ -31,7 +31,7 @@
       "name": "@vedivad/codemirror-typst",
       "version": "0.2.1",
       "dependencies": {
-        "@vedivad/typst-web-service": "^0.1.0",
+        "@vedivad/typst-web-service": "workspace:*",
         "codemirror-shiki": "^0.3.0",
         "shiki": "^4.0.2",
       },
@@ -451,7 +451,5 @@
     "w3c-keyname": ["w3c-keyname@2.2.8", "", {}, "sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ=="],
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
-
-    "@vedivad/codemirror-typst/@vedivad/typst-web-service": ["@vedivad/typst-web-service@0.1.0", "", { "dependencies": { "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2", "@myriaddreamin/typst.ts": "^0.7.0-rc2" } }, "sha512-UpmT76HEA3IFr+iIeUMMvkFp5o96E0FXmceu+9y/jgvG2x60GRC1fgzWNRgmUfCGOvReL957+A7u3mvo+/R5kg=="],
   }
 }

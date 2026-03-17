@@ -21,7 +21,7 @@
   "dependencies": {
     "codemirror-shiki": "^0.3.0",
     "shiki": "^4.0.2",
-    "@vedivad/typst-web-service": "^0.1.0"
+    "@vedivad/typst-web-service": "workspace:*"
   },
   "peerDependencies": {
     "@codemirror/lint": "^6",

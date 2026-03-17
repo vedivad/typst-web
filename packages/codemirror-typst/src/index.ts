@@ -3,6 +3,7 @@ import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
 import type { TypstServiceOptions } from "@vedivad/typst-web-service";
 import { TypstService } from "@vedivad/typst-web-service";
+import { toCMDiagnostic } from "./diagnostics.js";
 import { TypstWorkerPlugin } from "./plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
@@ -20,6 +21,7 @@ export {
   createTypstShikiExtension,
   createTypstShikiHighlighting,
   TypstService,
+  toCMDiagnostic,
 };
 
 export interface TypstExtensionsOptions {
