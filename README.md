@@ -1,19 +1,48 @@
 # typst-web
 
-Typst tooling for the web, split into small packages:
-
-- `typst-web-service`: an editor-agnostic Web Worker service that compiles Typst and returns diagnostics, vectors, and PDF output.
-- `codemirror-typst`: a CodeMirror 6 extension built on top of `typst-web-service`.
-- `demo`: a Vite demo that wires diagnostics and SVG preview together.
+Typst tooling for the web, split into small packages.
 
 ## Packages
 
-| Package             | Path                         | Purpose                                         |
-| ------------------- | ---------------------------- | ----------------------------------------------- |
-| `typst-web-service` | `packages/typst-web-service` | Core worker-backed Typst compile/render service |
-| `codemirror-typst`  | `packages/codemirror-typst`  | CodeMirror linter extension using the service   |
+| Package                      | Path                         | Purpose                                         |
+| ---------------------------- | ---------------------------- | ----------------------------------------------- |
+| `@vedivad/typst-web-service` | `packages/typst-web-service` | Core worker-backed Typst compile/render service |
+| `@vedivad/codemirror-typst`  | `packages/codemirror-typst`  | CodeMirror linter extension using the service   |
 
 ## Quickstart
+
+### `typst-web-service`
+
+```ts
+import { TypstService } from "@vedivad/typst-web-service";
+
+const service = TypstService.create();
+await service.ready;
+
+const result = await service.compile("= Hello, Typst");
+console.log(result.diagnostics);
+
+service.destroy();
+```
+
+### `codemirror-typst`
+
+```ts
+import { EditorView, basicSetup } from "codemirror";
+import { EditorState } from "@codemirror/state";
+import { typst } from "codemirror-lang-typst";
+import { typstLinter } from "@vedivad/codemirror-typst";
+
+new EditorView({
+  parent: document.querySelector("#app")!,
+  state: EditorState.create({
+    doc: "= Typst",
+    extensions: [basicSetup, typst(), typstLinter()],
+  }),
+});
+```
+
+## Development
 
 ### Prerequisites
 
@@ -50,39 +79,6 @@ make dev
 ```
 
 The demo serves from `demo/` and is useful for validating diagnostics + SVG preview behavior end to end.
-
-## Minimal usage
-
-### `typst-web-service`
-
-```ts
-import { TypstService } from "@vedivad/typst-web-service";
-
-const service = TypstService.create();
-await service.ready;
-
-const result = await service.compile("= Hello, Typst");
-console.log(result.diagnostics);
-
-service.destroy();
-```
-
-### `codemirror-typst`
-
-```ts
-import { EditorView, basicSetup } from "codemirror";
-import { EditorState } from "@codemirror/state";
-import { typst } from "codemirror-lang-typst";
-import { typstLinter } from "@vedivad/codemirror-typst";
-
-new EditorView({
-  parent: document.querySelector("#app")!,
-  state: EditorState.create({
-    doc: "= Typst",
-    extensions: [basicSetup, typst(), typstLinter()],
-  }),
-});
-```
 
 ## Architecture summary
 
