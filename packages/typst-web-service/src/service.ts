@@ -86,11 +86,13 @@ const DEFAULT_RENDERER_WASM_URL =
  */
 export class TypstService {
   readonly ready: Promise<void>;
+  /** Resolves when the SVG renderer is ready, or rejects if it failed to initialize. Undefined if no renderer was configured. */
+  readonly rendererReady?: Promise<void>;
   private idCounter = 0;
 
   private onVector?: (vector: Uint8Array) => void;
   private onSvg?: (svg: string) => void;
-  private rendererReady?: Promise<RendererInstance>;
+  private rendererInstance?: Promise<RendererInstance>;
 
   /** The most recent vector artifact from a compile, if any. */
   lastVector?: Uint8Array;
@@ -103,7 +105,8 @@ export class TypstService {
     this.onSvg = options.onSvg;
 
     if (options.renderer) {
-      this.rendererReady = this.#initRenderer(options.renderer, options.rendererWasmUrl);
+      this.rendererInstance = this.#initRenderer(options.renderer, options.rendererWasmUrl);
+      this.rendererReady = this.rendererInstance.then(() => {});
     }
 
     this.ready = workerRpc(
@@ -164,9 +167,13 @@ export class TypstService {
   }
 
   async #emitSvg(vector: Uint8Array): Promise<void> {
-    if (!this.onSvg || !this.rendererReady) return;
-    const renderer = await this.rendererReady;
-    this.onSvg(this.#vectorToSvg(renderer, vector));
+    if (!this.onSvg || !this.rendererInstance) return;
+    try {
+      const renderer = await this.rendererInstance;
+      this.onSvg(this.#vectorToSvg(renderer, vector));
+    } catch {
+      // renderer init failed; observable via rendererReady
+    }
   }
 
   /**
@@ -174,8 +181,8 @@ export class TypstService {
    * Requires the `renderer` option to be set. Returns null if the renderer is unavailable.
    */
   async renderSvg(vector: Uint8Array): Promise<string | null> {
-    if (!this.rendererReady) return null;
-    const renderer = await this.rendererReady;
+    if (!this.rendererInstance) return null;
+    const renderer = await this.rendererInstance;
     return this.#vectorToSvg(renderer, vector);
   }
 
