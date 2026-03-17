@@ -12,7 +12,10 @@
       "name": "codemirror-typst-demo",
       "version": "0.0.1",
       "dependencies": {
+        "@codemirror/lint": "^6",
+        "@codemirror/state": "^6",
         "@codemirror/theme-one-dark": "^6.1.2",
+        "@codemirror/view": "^6",
         "@myriaddreamin/typst-ts-renderer": "0.7.0-rc2",
         "codemirror": "^6.0.2",
         "codemirror-lang-typst": "^0.4.0",
