@@ -25,15 +25,13 @@
   let diagnostics = $state<Diagnostic[]>([]);
   let svgContent = $state<string | null>(null);
   let renderError = $state<string | null>(null);
-  let ready = $state(false);
-  let service: TypstService | null = null;
+  let service = $state<TypstService | null>(null);
   let renderer: TypstRenderer | null = null;
 
   onMount(async () => {
     const s = new TypstService(
       new Worker(new URL('codemirror-typst-linter/worker', import.meta.url), { type: 'module' }),
     );
-    service = s;
 
     try {
       await initRenderer(rendererWasmUrl);
@@ -43,7 +41,7 @@
       renderError = err instanceof Error ? err.message : String(err);
     }
 
-    ready = true;
+    service = s;
 
     return () => { s.destroy(); };
   });
@@ -69,7 +67,7 @@
     <p>Typst diagnostics with incremental compilation and @preview/ package support.</p>
   </header>
   <div class="main">
-    {#if ready && service}
+    {#if service}
       <Editor
         {initialDoc}
         {service}
