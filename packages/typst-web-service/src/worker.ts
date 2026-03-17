@@ -34,12 +34,22 @@ async function initCompiler(wasmUrl: string, fontUrls: string[], packages: boole
   });
 }
 
+function parseRange(range: string): DiagnosticMessage["range"] {
+  const m = range.match(/(\d+):(\d+)-(\d+):(\d+)/);
+  if (!m) return { startLine: 0, startCol: 0, endLine: 0, endCol: 0 };
+  return { startLine: +m[1], startCol: +m[2], endLine: +m[3], endCol: +m[4] };
+}
+
 async function compile(source: string): Promise<{ diagnostics: DiagnosticMessage[]; vector?: Uint8Array }> {
   if (!compiler) throw new Error("Compiler not initialized");
   compiler.addSource("/main.typ", source);
   const result = await compiler.compile({ mainFilePath: "/main.typ", diagnostics: "full" });
-  // The compiler types severity as string; cast to our narrower union
-  return { diagnostics: (result.diagnostics ?? []) as DiagnosticMessage[], vector: result.result ?? undefined };
+  const diagnostics: DiagnosticMessage[] = (result.diagnostics ?? []).map((d: any) => ({
+    ...d,
+    severity: d.severity as DiagnosticMessage["severity"],
+    range: parseRange(d.range),
+  }));
+  return { diagnostics, vector: result.result ?? undefined };
 }
 
 function postError(id: number, err: unknown): void {

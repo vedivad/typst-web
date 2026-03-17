@@ -2,12 +2,6 @@ import type { Diagnostic } from "@codemirror/lint";
 import type { EditorState } from "@codemirror/state";
 import type { DiagnosticMessage } from "typst-web-service";
 
-function parseRange(range: string): [number, number, number, number] {
-  const m = range.match(/(\d+):(\d+)-(\d+):(\d+)/);
-  if (!m) return [0, 0, 0, 0];
-  return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10), parseInt(m[4], 10)];
-}
-
 function mapSeverity(raw: DiagnosticMessage["severity"]): Diagnostic["severity"] {
   if (raw === "Warning") return "warning";
   if (raw === "Info") return "info";
@@ -15,7 +9,7 @@ function mapSeverity(raw: DiagnosticMessage["severity"]): Diagnostic["severity"]
 }
 
 export function toCMDiagnostic(state: EditorState, d: DiagnosticMessage): Diagnostic {
-  const [startLine, startCol, endLine, endCol] = parseRange(d.range);
+  const { startLine, startCol, endLine, endCol } = d.range;
   const docLines = state.doc.lines;
 
   // typst.ts 'full' range is 0-indexed; CM doc.line() is 1-indexed
