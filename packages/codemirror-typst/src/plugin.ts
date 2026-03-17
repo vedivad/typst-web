@@ -5,7 +5,7 @@ import type { TypstService } from "typst-web-service";
 
 export interface PluginOptions {
   service: TypstService;
-  ownsService: boolean;
+  onDestroy?: () => void;
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
 
@@ -47,6 +47,6 @@ export class TypstWorkerPlugin {
 
   destroy() {
     this.controller?.abort();
-    if (this.options.ownsService) this.options.service.destroy();
+    this.options.onDestroy?.();
   }
 }

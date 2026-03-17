@@ -9,6 +9,11 @@ export { TypstService, createTypstService };
 export type { TypstServiceOptions, CompileResult } from "typst-web-service";
 
 export interface TypstLinterOptions extends TypstServiceOptions {
+  /**
+   * External service to use. When provided, its lifecycle is managed by the caller.
+   * When omitted, a service is created automatically and destroyed with the editor.
+   */
+  service?: TypstService;
   /** Delay in ms before linting fires after a document change. Default: 0. */
   delay?: number;
   /** Called after each lint pass with the resulting diagnostics. */
@@ -18,39 +23,21 @@ export interface TypstLinterOptions extends TypstServiceOptions {
 /**
  * Create a Typst linter extension for CodeMirror.
  *
- * When called without a service, one is created automatically (and destroyed
- * when the editor view is destroyed):
- *   typstLinter({ onDiagnostics, onVector })
+ * Without a service, one is created automatically (destroyed with the editor):
+ *   typstLinter({ onDiagnostics, onSvg })
  *
- * When called with an explicit service, the caller manages its lifecycle:
- *   typstLinter(service, { onDiagnostics, onVector })
+ * With an explicit service, the caller manages its lifecycle:
+ *   typstLinter({ service, onDiagnostics })
  */
-export function typstLinter(
-  serviceOrOptions?: TypstService | TypstLinterOptions,
-  options?: TypstLinterOptions,
-): Extension {
-  let service: TypstService;
-  let ownsService: boolean;
-  let opts: TypstLinterOptions;
-
-  if (serviceOrOptions instanceof TypstService) {
-    service = serviceOrOptions;
-    ownsService = false;
-    opts = options ?? {};
-  } else {
-    opts = serviceOrOptions ?? {};
-    service = createTypstService(opts);
-    ownsService = true;
-  }
-
-  const delay = opts.delay ?? 0;
-  const onDiagnostics = opts.onDiagnostics;
+export function typstLinter(options: TypstLinterOptions = {}): Extension {
+  const { service: externalService, delay = 0, onDiagnostics, ...serviceOptions } = options;
+  const service = externalService ?? createTypstService(serviceOptions);
 
   const workerPlugin = ViewPlugin.define(
     () =>
       new TypstWorkerPlugin({
         service,
-        ownsService,
+        onDestroy: externalService ? undefined : () => service.destroy(),
         onDiagnostics,
       }),
     {},
