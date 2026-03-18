@@ -73,22 +73,42 @@ new EditorView({
 Multi-file editor (shared service + `getFiles`):
 
 ```ts
-import { createTypstLinter, createTypstShikiExtension, TypstService } from "@vedivad/codemirror-typst";
+import { EditorView, basicSetup } from "codemirror";
+import { EditorState } from "@codemirror/state";
+import { createTypstExtensions, TypstService } from "@vedivad/codemirror-typst";
 
 const files: Record<string, string> = {
   "/main.typ": "...",
   "/template.typ": "...",
 };
 
-const service = TypstService.create({ renderer: { /* ... */ } });
+const service = TypstService.create({
+  renderer: {
+    module: () => import("@myriaddreamin/typst-ts-renderer"),
+    onSvg: (svg) => { /* ... */ },
+  },
+});
 
 // Each editor declares its file path and provides a getter for all project files.
 // The editor's own content is included automatically — getFiles provides the rest.
-createTypstLinter({
-  service,
-  filePath: "/main.typ",
-  getFiles: () => files,
-  onDiagnostics: (d) => console.log(d),
+const typstExtensions = await createTypstExtensions({
+  highlighting: {
+    themes: { light: "github-light", dark: "github-dark" },
+    defaultColor: "dark",
+  },
+  compiler: {
+    service,
+    filePath: "/main.typ",
+    getFiles: () => files,
+  },
+});
+
+new EditorView({
+  parent: document.querySelector("#app")!,
+  state: EditorState.create({
+    doc: files["/main.typ"],
+    extensions: [basicSetup, ...typstExtensions],
+  }),
 });
 ```
 
