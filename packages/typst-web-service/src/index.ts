@@ -1,3 +1,5 @@
+export type { FormatConfig, FormatRangeResult } from "./formatter.js";
+export { TypstFormatter } from "./formatter.js";
 export type {
   CompileResult,
   RendererInstance,

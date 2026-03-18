@@ -1,8 +1,8 @@
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
-  createTypstLinter,
-  createTypstShikiExtension,
+  createTypstExtensions,
+  TypstFormatter,
   TypstService,
 } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
@@ -37,6 +37,8 @@ const previewEl = document.getElementById("preview")!;
 const editorEl = document.getElementById("editor")!;
 const tabsEl = document.getElementById("tabs")!;
 
+const formatter = new TypstFormatter({ tab_spaces: 2, max_width: 80 });
+
 const service = TypstService.create({
   renderer: {
     module: () => import("@myriaddreamin/typst-ts-renderer"),
@@ -46,48 +48,48 @@ const service = TypstService.create({
   },
 });
 
-// --- Shared extensions ---
-
-const shikiExtension = await createTypstShikiExtension({
-  themes: { light: "github-light", dark: "github-dark" },
-  defaultColor: "dark",
-  engine: "javascript",
-});
-
 const filePaths = Object.keys(files);
 
-function makeState(path: string, doc: string): EditorState {
-  return EditorState.create({
-    doc,
-    extensions: [
-      basicSetup,
-      oneDark,
-      shikiExtension,
-      createTypstLinter({
-        service,
-        filePath: path,
-        getFiles: () => files,
-        onDiagnostics: (d) => {
-          if (path === activeFile) updateDiagnostics(diagnosticsEl, d);
-        },
-      }),
-    ],
-  });
-}
-
-const states: Record<string, EditorState> = {};
-for (const [path, content] of Object.entries(files)) {
-  states[path] = makeState(path, content);
-}
-
-// --- Tab switching ---
+// --- Editor states ---
 
 let activeFile = filePaths[0];
 let activeView: EditorView | null = null;
 
+async function makeState(path: string, doc: string): Promise<EditorState> {
+  const typstExtensions = await createTypstExtensions({
+    highlighting: {
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: "dark",
+      engine: "javascript",
+    },
+    compiler: {
+      service,
+      filePath: path,
+      getFiles: () => files,
+      onDiagnostics: (d) => {
+        if (path === activeFile) updateDiagnostics(diagnosticsEl, d);
+      },
+    },
+    formatter: { formatter },
+  });
+
+  return EditorState.create({
+    doc,
+    extensions: [basicSetup, oneDark, ...typstExtensions],
+  });
+}
+
+const states: Record<string, EditorState> = {};
+await Promise.all(
+  Object.entries(files).map(async ([path, content]) => {
+    states[path] = await makeState(path, content);
+  }),
+);
+
+// --- Tab switching ---
+
 function switchTab(path: string) {
   if (activeView) {
-    // Persist editor content back to files map
     files[activeFile] = activeView.state.doc.toString();
     states[activeFile] = activeView.state;
   }

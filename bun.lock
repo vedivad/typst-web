@@ -55,6 +55,7 @@
       "dependencies": {
         "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
         "@myriaddreamin/typst.ts": "^0.7.0-rc2",
+        "@typstyle/typstyle-wasm-bundler": "^0.14.4",
       },
       "devDependencies": {
         "esbuild": "^0.27.3",
@@ -271,6 +272,8 @@
     "@types/mdast": ["@types/mdast@4.0.4", "", { "dependencies": { "@types/unist": "*" } }, "sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA=="],
 
     "@types/unist": ["@types/unist@3.0.3", "", {}, "sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q=="],
+
+    "@typstyle/typstyle-wasm-bundler": ["@typstyle/typstyle-wasm-bundler@0.14.4", "", {}, "sha512-/umkAkAgjMQEXN5TdpcpHSHt9DFZkMO6w5j13VsQK9toK/09AneBXSHOnhA+Mv9KOOiS/3h/DPBqLDdkBVPQcw=="],
 
     "@ungap/structured-clone": ["@ungap/structured-clone@1.3.0", "", {}, "sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g=="],
 

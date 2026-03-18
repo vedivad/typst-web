@@ -4,6 +4,8 @@ import { ViewPlugin } from "@codemirror/view";
 import type { TypstServiceOptions } from "@vedivad/typst-web-service";
 import { TypstService } from "@vedivad/typst-web-service";
 import { toCMDiagnostic } from "./diagnostics.js";
+import type { TypstFormatterOptions } from "./formatter.js";
+import { createTypstFormatter } from "./formatter.js";
 import { TypstWorkerPlugin } from "./plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
@@ -13,11 +15,18 @@ import {
 
 export type {
   CompileResult,
+  FormatConfig,
   RendererOptions,
   TypstServiceOptions,
 } from "@vedivad/typst-web-service";
-export type { TypstShikiHighlighting, TypstShikiOptions };
+export { TypstFormatter } from "@vedivad/typst-web-service";
+export type {
+  TypstFormatterOptions,
+  TypstShikiHighlighting,
+  TypstShikiOptions,
+};
 export {
+  createTypstFormatter,
   createTypstShikiExtension,
   createTypstShikiHighlighting,
   TypstService,
@@ -29,6 +38,8 @@ export interface TypstExtensionsOptions {
   highlighting?: TypstShikiOptions;
   /** Options forwarded to the Typst compiler/lint extension factory. */
   compiler?: TypstLinterOptions;
+  /** Options for the code formatter. Pass `{}` to enable with defaults, or omit to skip. */
+  formatter?: TypstFormatterOptions;
 }
 
 export interface TypstLinterOptions extends TypstServiceOptions {
@@ -99,5 +110,11 @@ export async function createTypstExtensions(
 ): Promise<Extension[]> {
   const shikiExtension = await createTypstShikiExtension(options.highlighting);
   const linterExtension = createTypstLinter(options.compiler);
-  return [shikiExtension, linterExtension];
+  const extensions: Extension[] = [shikiExtension, linterExtension];
+
+  if (options.formatter) {
+    extensions.push(createTypstFormatter(options.formatter));
+  }
+
+  return extensions;
 }
