@@ -13,5 +13,11 @@ dev: build
     rm -rf demo/node_modules/.vite
     cd demo && bun dev
 
+test:
+    bunx vitest run
+
+test-watch:
+    bunx vitest
+
 format:
     npx biome check --write .

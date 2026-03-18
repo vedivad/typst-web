@@ -10,10 +10,14 @@
     "dev": "bun run --filter 'packages/*' dev",
     "format": "biome format --write .",
     "lint": "biome lint .",
-    "check": "biome check --write ."
+    "check": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-plugin-wasm": "^3.6.0",
+    "vitest": "^4.1.0"
   }
 }
