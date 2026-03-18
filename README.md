@@ -16,6 +16,7 @@
 - **Syntax highlighting** — Shiki-based highlighting with configurable themes
 - **Inline diagnostics** — maps Typst diagnostics to CodeMirror lint markers with gutter icons
 - **Format keybinding** — Shift+Alt+F to format the document or current selection
+- **Format on save** — optional Ctrl+S / Cmd+S formatting with a save callback hook
 
 ## Packages
 
@@ -105,14 +106,25 @@ const result = await formatter.formatRange(source, selectionStart, selectionEnd)
 
 ### `codemirror-typst`
 
-#### Single-file editor (zero-config)
-
-A minimal setup — the service and worker are created automatically:
+#### Single-file editor
 
 ```ts
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
-import { createTypstExtensions, TypstFormatter } from "@vedivad/codemirror-typst";
+import {
+  createTypstExtensions,
+  TypstFormatter,
+  TypstService,
+} from "@vedivad/codemirror-typst";
+
+const service = TypstService.create({
+  renderer: {
+    module: () => import("@myriaddreamin/typst-ts-renderer"),
+    onSvg: (svg) => {
+      document.querySelector("#preview")!.innerHTML = svg;
+    },
+  },
+});
 
 const typstExtensions = await createTypstExtensions({
   highlighting: {
@@ -120,12 +132,7 @@ const typstExtensions = await createTypstExtensions({
     defaultColor: "dark",
   },
   compiler: {
-    renderer: {
-      module: () => import("@myriaddreamin/typst-ts-renderer"),
-      onSvg: (svg) => {
-        document.querySelector("#preview")!.innerHTML = svg;
-      },
-    },
+    service,
     onDiagnostics: (diagnostics) => console.log(diagnostics),
   },
   formatter: {
@@ -142,32 +149,15 @@ new EditorView({
 });
 ```
 
-#### Multi-file editor (shared service)
+#### Multi-file editor
 
-For multi-file projects, create a shared `TypstService` and pass it to each editor. Each editor declares its `filePath` and provides a `getFiles` getter so the compiler sees all project files during compilation.
+For multi-file projects, share a single `TypstService` across editors. Each editor declares its `filePath` and provides a `getFiles` getter so the compiler sees all project files during compilation.
 
 ```ts
-import { EditorView, basicSetup } from "codemirror";
-import { EditorState } from "@codemirror/state";
-import {
-  createTypstExtensions,
-  TypstFormatter,
-  TypstService,
-} from "@vedivad/codemirror-typst";
-
 const files: Record<string, string> = {
   "/main.typ": "...",
   "/template.typ": "...",
 };
-
-const formatter = new TypstFormatter({ tab_spaces: 2, max_width: 80 });
-
-const service = TypstService.create({
-  renderer: {
-    module: () => import("@myriaddreamin/typst-ts-renderer"),
-    onSvg: (svg) => { /* ... */ },
-  },
-});
 
 const typstExtensions = await createTypstExtensions({
   highlighting: {
@@ -180,14 +170,6 @@ const typstExtensions = await createTypstExtensions({
     getFiles: () => files,
   },
   formatter: { formatter },
-});
-
-new EditorView({
-  parent: document.querySelector("#app")!,
-  state: EditorState.create({
-    doc: files["/main.typ"],
-    extensions: [basicSetup, ...typstExtensions],
-  }),
 });
 ```
 
@@ -214,6 +196,23 @@ const format = createTypstFormatter({
 const extensions = [shiki, linter, format];
 ```
 
+#### Format on save
+
+Enable `formatOnSave` to format the document on Ctrl+S / Cmd+S. Pass a callback to hook into the save event — useful for persisting to a backend or IndexedDB:
+
+```ts
+// Format on save, no callback
+formatter: { formatter, formatOnSave: true }
+
+// Format on save with a callback
+formatter: {
+  formatter,
+  formatOnSave: (content) => {
+    fetch("/api/save", { method: "POST", body: content });
+  },
+}
+```
+
 ## Development
 
 ### Prerequisites
@@ -236,7 +235,7 @@ const extensions = [shiki, linter, format];
 just dev
 ```
 
-The demo at `demo/` includes a tabbed multi-file editor, live SVG preview, diagnostics panel, and PDF export.
+The demo at `demo/` includes a tabbed multi-file editor, live SVG preview, diagnostics panel with source locations, PDF export, code formatting (Shift+Alt+F), and format on save (Ctrl+S).
 
 ## Architecture
 

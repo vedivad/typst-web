@@ -28,8 +28,9 @@ export function updateDiagnostics(
   }
   const items = diagnostics
     .map((d) => {
-      const loc =
-        doc ? `<span class="loc">${formatLocation(doc, d.from)}</span>` : "";
+      const loc = doc
+        ? `<span class="loc">${formatLocation(doc, d.from)}</span>`
+        : "";
       return `<li class="diagnostic ${d.severity}"><span class="icon">${severityIcon(d.severity)}</span>${loc}<span class="message">${escapeHtml(d.message)}</span></li>`;
     })
     .join("");

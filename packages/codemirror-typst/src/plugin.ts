@@ -9,7 +9,6 @@ export interface PluginOptions {
   filePath?: string;
   /** Return all project files. The current editor's content is included automatically under filePath. */
   getFiles?: () => Record<string, string>;
-  onDestroy?: () => void;
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
 
@@ -58,6 +57,5 @@ export class TypstWorkerPlugin {
 
   destroy() {
     this.controller?.abort();
-    this.options.onDestroy?.();
   }
 }

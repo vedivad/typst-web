@@ -72,7 +72,7 @@ async function makeState(path: string, doc: string): Promise<EditorState> {
           updateDiagnostics(diagnosticsEl, d, activeView?.state.doc);
       },
     },
-    formatter: { formatter },
+    formatter: { formatter, formatOnSave: true },
   });
 
   return EditorState.create({

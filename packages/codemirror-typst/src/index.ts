@@ -1,7 +1,6 @@
 import { type Diagnostic, linter, lintGutter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
-import type { TypstServiceOptions } from "@vedivad/typst-web-service";
 import { TypstService } from "@vedivad/typst-web-service";
 import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
@@ -17,7 +16,6 @@ export type {
   CompileResult,
   FormatConfig,
   RendererOptions,
-  TypstServiceOptions,
 } from "@vedivad/typst-web-service";
 export { TypstFormatter } from "@vedivad/typst-web-service";
 export type {
@@ -36,18 +34,15 @@ export {
 export interface TypstExtensionsOptions {
   /** Options forwarded to the Typst Shiki highlighting factory. */
   highlighting?: TypstShikiOptions;
-  /** Options forwarded to the Typst compiler/lint extension factory. */
-  compiler?: TypstLinterOptions;
-  /** Options for the code formatter. Pass `{}` to enable with defaults, or omit to skip. */
+  /** Options forwarded to the Typst linter extension. */
+  compiler: TypstLinterOptions;
+  /** Options for the code formatter. Omit to disable. */
   formatter?: TypstFormatterOptions;
 }
 
-export interface TypstLinterOptions extends TypstServiceOptions {
-  /**
-   * External service to use. When provided, its lifecycle is managed by the caller.
-   * When omitted, a service is created automatically and destroyed with the editor.
-   */
-  service?: TypstService;
+export interface TypstLinterOptions {
+  /** TypstService instance to use for compilation and diagnostics. */
+  service: TypstService;
   /** File path this editor represents. Default: "/main.typ" */
   filePath?: string;
   /** Return all project files. The editor's content is included automatically under filePath. */
@@ -61,22 +56,10 @@ export interface TypstLinterOptions extends TypstServiceOptions {
 /**
  * Create a Typst linter extension for CodeMirror.
  *
- * Without a service, one is created automatically (destroyed with the editor):
- *   createTypstLinter({ onDiagnostics, renderer: { ... } })
- *
- * With an explicit service, the caller manages its lifecycle:
- *   createTypstLinter({ service, onDiagnostics })
+ *   createTypstLinter({ service, filePath: "/main.typ", onDiagnostics })
  */
-export function createTypstLinter(options: TypstLinterOptions = {}): Extension {
-  const {
-    service: externalService,
-    filePath,
-    getFiles,
-    delay = 0,
-    onDiagnostics,
-    ...serviceOptions
-  } = options;
-  const service = externalService ?? TypstService.create(serviceOptions);
+export function createTypstLinter(options: TypstLinterOptions): Extension {
+  const { service, filePath, getFiles, delay = 0, onDiagnostics } = options;
 
   const workerPlugin = ViewPlugin.define(
     () =>
@@ -84,7 +67,6 @@ export function createTypstLinter(options: TypstLinterOptions = {}): Extension {
         service,
         filePath,
         getFiles,
-        onDestroy: externalService ? undefined : () => service.destroy(),
         onDiagnostics,
       }),
     {},
@@ -106,7 +88,7 @@ export function createTypstLinter(options: TypstLinterOptions = {}): Extension {
  * Create the default Typst extension set for CodeMirror.
  */
 export async function createTypstExtensions(
-  options: TypstExtensionsOptions = {},
+  options: TypstExtensionsOptions,
 ): Promise<Extension[]> {
   const shikiExtension = await createTypstShikiExtension(options.highlighting);
   const linterExtension = createTypstLinter(options.compiler);
