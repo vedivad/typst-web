@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@myriaddreamin/typst.ts": "^0.7.0-rc2",
+    "@myriaddreamin/typst-ts-renderer": "^0.7.0-rc2",
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
     "@typstyle/typstyle-wasm-bundler": "^0.14.4"
   },

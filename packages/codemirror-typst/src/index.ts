@@ -1,7 +1,7 @@
 import { type Diagnostic, linter, lintGutter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
-import { TypstService } from "@vedivad/typst-web-service";
+import type { CompileResult, TypstCompiler } from "@vedivad/typst-web-service";
 import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
@@ -15,9 +15,14 @@ import {
 export type {
   CompileResult,
   FormatConfig,
-  RendererOptions,
+  TypstCompilerOptions,
+  TypstRendererOptions,
 } from "@vedivad/typst-web-service";
-export { TypstFormatter } from "@vedivad/typst-web-service";
+export {
+  TypstCompiler,
+  TypstFormatter,
+  TypstRenderer,
+} from "@vedivad/typst-web-service";
 export type {
   TypstFormatterOptions,
   TypstShikiHighlighting,
@@ -27,7 +32,6 @@ export {
   createTypstFormatter,
   createTypstShikiExtension,
   createTypstShikiHighlighting,
-  TypstService,
   toCMDiagnostic,
 };
 
@@ -41,14 +45,16 @@ export interface TypstExtensionsOptions {
 }
 
 export interface TypstLinterOptions {
-  /** TypstService instance to use for compilation and diagnostics. */
-  service: TypstService;
+  /** TypstCompiler instance to use for compilation. */
+  compiler: TypstCompiler;
   /** File path this editor represents. Default: "/main.typ" */
   filePath?: string;
   /** Return all project files. The editor's content is included automatically under filePath. */
   getFiles?: () => Record<string, string>;
   /** Delay in ms before linting fires after a document change. Default: 0. */
   delay?: number;
+  /** Called after each successful compile with the full result (e.g. for SVG preview). */
+  onCompile?: (result: CompileResult) => void;
   /** Called after each lint pass with the resulting diagnostics. */
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
@@ -56,17 +62,19 @@ export interface TypstLinterOptions {
 /**
  * Create a Typst linter extension for CodeMirror.
  *
- *   createTypstLinter({ service, filePath: "/main.typ", onDiagnostics })
+ *   createTypstLinter({ compiler, filePath: "/main.typ", onDiagnostics })
  */
 export function createTypstLinter(options: TypstLinterOptions): Extension {
-  const { service, filePath, getFiles, delay = 0, onDiagnostics } = options;
+  const { compiler, filePath, getFiles, delay = 0, onCompile, onDiagnostics } =
+    options;
 
   const workerPlugin = ViewPlugin.define(
     () =>
       new TypstWorkerPlugin({
-        service,
+        compiler,
         filePath,
         getFiles,
+        onCompile,
         onDiagnostics,
       }),
     {},

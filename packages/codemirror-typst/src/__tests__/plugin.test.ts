@@ -1,9 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  DiagnosticMessage,
-  TypstService,
-} from "@vedivad/typst-web-service";
+import type { DiagnosticMessage } from "@vedivad/typst-web-service";
 import { TypstWorkerPlugin } from "../plugin.js";
 
 function mockView(doc: string) {
@@ -11,7 +8,7 @@ function mockView(doc: string) {
   return { state } as any;
 }
 
-function mockService(diagnostics: DiagnosticMessage[] = []): TypstService {
+function mockCompiler(diagnostics: DiagnosticMessage[] = []) {
   return {
     compile: vi.fn().mockResolvedValue({ diagnostics }),
   } as any;
@@ -35,18 +32,18 @@ describe("TypstWorkerPlugin", () => {
         message: "ignored",
       },
     ];
-    const service = mockService(diags);
-    const plugin = new TypstWorkerPlugin({ service });
+    const compiler = mockCompiler(diags);
+    const plugin = new TypstWorkerPlugin({ compiler });
     const result = await plugin.lint(mockView("abc"));
     expect(result).toHaveLength(1);
     expect(result[0].message).toBe("bad");
   });
 
   it("returns error diagnostic when compile throws", async () => {
-    const service = {
+    const compiler = {
       compile: vi.fn().mockRejectedValue(new Error("boom")),
     } as any;
-    const plugin = new TypstWorkerPlugin({ service });
+    const plugin = new TypstWorkerPlugin({ compiler });
     const result = await plugin.lint(mockView("x"));
     expect(result).toHaveLength(1);
     expect(result[0].severity).toBe("error");
@@ -55,38 +52,38 @@ describe("TypstWorkerPlugin", () => {
 
   it("calls onDiagnostics callback", async () => {
     const onDiagnostics = vi.fn();
-    const service = mockService([]);
-    const plugin = new TypstWorkerPlugin({ service, onDiagnostics });
+    const compiler = mockCompiler([]);
+    const plugin = new TypstWorkerPlugin({ compiler, onDiagnostics });
     await plugin.lint(mockView(""));
     expect(onDiagnostics).toHaveBeenCalledWith([]);
   });
 
-  it("passes merged files to service.compile", async () => {
-    const service = mockService();
+  it("passes merged files to compiler.compile", async () => {
+    const compiler = mockCompiler();
     const getFiles = () => ({ "/lib.typ": "// lib" });
     const plugin = new TypstWorkerPlugin({
-      service,
+      compiler,
       filePath: "/main.typ",
       getFiles,
     });
     await plugin.lint(mockView("hello"));
-    expect(service.compile).toHaveBeenCalledWith({
+    expect(compiler.compile).toHaveBeenCalledWith({
       "/lib.typ": "// lib",
       "/main.typ": "hello",
     });
   });
 
   it("uses /main.typ as default file path", async () => {
-    const service = mockService();
-    const plugin = new TypstWorkerPlugin({ service });
+    const compiler = mockCompiler();
+    const plugin = new TypstWorkerPlugin({ compiler });
     await plugin.lint(mockView("content"));
-    expect(service.compile).toHaveBeenCalledWith({
+    expect(compiler.compile).toHaveBeenCalledWith({
       "/main.typ": "content",
     });
   });
 
   it("returns empty diagnostics when aborted", async () => {
-    const service = {
+    const compiler = {
       compile: vi.fn().mockImplementation(
         () =>
           new Promise((resolve) => {
@@ -98,7 +95,7 @@ describe("TypstWorkerPlugin", () => {
           }),
       ),
     } as any;
-    const plugin = new TypstWorkerPlugin({ service });
+    const plugin = new TypstWorkerPlugin({ compiler });
     const view = mockView("x");
 
     // Start first lint, then immediately start second (aborts first)

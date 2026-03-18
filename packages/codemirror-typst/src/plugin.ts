@@ -1,14 +1,16 @@
 import type { Diagnostic } from "@codemirror/lint";
 import type { EditorView } from "@codemirror/view";
-import type { TypstService } from "@vedivad/typst-web-service";
+import type { CompileResult, TypstCompiler } from "@vedivad/typst-web-service";
 import { toCMDiagnostic } from "./diagnostics.js";
 
 export interface PluginOptions {
-  service: TypstService;
+  compiler: TypstCompiler;
   /** File path this editor represents. Default: "/main.typ" */
   filePath?: string;
   /** Return all project files. The current editor's content is included automatically under filePath. */
   getFiles?: () => Record<string, string>;
+  /** Called after each successful compile with the full result. */
+  onCompile?: (result: CompileResult) => void;
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
 
@@ -31,9 +33,11 @@ export class TypstWorkerPlugin {
     let diagnostics: Diagnostic[];
 
     try {
-      const result = await this.options.service.compile(files);
+      const result = await this.options.compiler.compile(files);
 
       if (signal.aborted) return [];
+
+      this.options.onCompile?.(result);
 
       diagnostics = result.diagnostics
         .filter((d) => d.path === this.path)

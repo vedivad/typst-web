@@ -2,8 +2,9 @@ import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
   createTypstExtensions,
+  TypstCompiler,
   TypstFormatter,
-  TypstService,
+  TypstRenderer,
 } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
 import { updateDiagnostics } from "./diagnostics";
@@ -39,15 +40,8 @@ const tabsEl = document.getElementById("tabs")!;
 const exportBtn = document.getElementById("export-pdf") as HTMLButtonElement;
 
 const formatter = new TypstFormatter({ tab_spaces: 2, max_width: 80 });
-
-const service = TypstService.create({
-  renderer: {
-    module: () => import("@myriaddreamin/typst-ts-renderer"),
-    onSvg: (svg) => {
-      previewEl.innerHTML = `<div class="svg-container">${svg}</div>`;
-    },
-  },
-});
+const compiler = new TypstCompiler();
+const renderer = new TypstRenderer();
 
 const filePaths = Object.keys(files);
 
@@ -64,9 +58,15 @@ async function makeState(path: string, doc: string): Promise<EditorState> {
       engine: "javascript",
     },
     compiler: {
-      service,
+      compiler,
       filePath: path,
       getFiles: () => files,
+      onCompile: async (result) => {
+        if (result.vector) {
+          const svg = await renderer.renderSvg(result.vector);
+          previewEl.innerHTML = `<div class="svg-container">${svg}</div>`;
+        }
+      },
       onDiagnostics: (d) => {
         if (path === activeFile)
           updateDiagnostics(diagnosticsEl, d, activeView?.state.doc);
@@ -130,7 +130,7 @@ exportBtn.addEventListener("click", async () => {
   exportBtn.disabled = true;
   exportBtn.textContent = "Exporting…";
   try {
-    const pdf = await service.renderPdf(files);
+    const pdf = await compiler.compilePdf(files);
     const blob = new Blob([pdf.slice()], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
