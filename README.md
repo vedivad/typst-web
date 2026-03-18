@@ -239,24 +239,24 @@ The demo at `demo/` includes a tabbed multi-file editor, live SVG preview, diagn
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│  codemirror-typst (CodeMirror 6 extensions) │
-│  ┌──────────┐ ┌────────┐ ┌───────────────┐ │
-│  │  Shiki   │ │ Linter │ │  Formatter    │ │
-│  │highlight │ │        │ │  keybinding   │ │
-│  └──────────┘ └───┬────┘ └───────┬───────┘ │
-└───────────────────┼──────────────┼──────────┘
-                    │              │
-              ┌─────▼─────┐  ┌────▼──────────┐
-              │TypstService│  │TypstFormatter │
-              │  (Worker)  │  │ (main thread) │
-              └─────┬──────┘  └───────┬───────┘
-                    │                 │
-              ┌─────▼──────┐   ┌─────▼───────┐
-              │typst WASM  │   │typstyle WASM│
-              │(compiler)  │   │(formatter)  │
-              └────────────┘   └─────────────┘
+```mermaid
+graph TD
+  subgraph "codemirror-typst"
+    Shiki[Shiki highlighting]
+    Linter[Linter extension]
+    Formatter[Formatter keybinding]
+  end
+
+  subgraph "typst-web-service"
+    TypstService["TypstService\n(Web Worker)"]
+    TypstFormatter["TypstFormatter\n(main thread)"]
+  end
+
+  Linter --> TypstService
+  Formatter --> TypstFormatter
+
+  TypstService --> TypstWASM["typst WASM\n(compiler)"]
+  TypstFormatter --> TypstyleWASM["typstyle WASM\n(formatter)"]
 ```
 
 - **`TypstService`** manages a Web Worker running the Typst WASM compiler. It handles compilation, rendering, and request coalescing. Accepts both single-file strings and multi-file `Record<string, string>` maps.
