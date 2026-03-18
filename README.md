@@ -1,7 +1,5 @@
 # typst-web
 
-Typst tooling for the web.
-
 ## Features
 
 ### `typst-web-service`
