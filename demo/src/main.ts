@@ -31,7 +31,7 @@ Each file is editable — switch tabs to see both.
 `,
 };
 
-// --- Service setup ---
+// --- Typst setup ---
 
 const diagnosticsEl = document.getElementById("diagnostics")!;
 const previewEl = document.getElementById("preview")!;
@@ -57,7 +57,7 @@ async function makeState(path: string, doc: string): Promise<EditorState> {
       defaultColor: "dark",
       engine: "javascript",
     },
-    compiler: {
+    linter: {
       compiler,
       filePath: path,
       getFiles: () => files,
@@ -72,7 +72,7 @@ async function makeState(path: string, doc: string): Promise<EditorState> {
           updateDiagnostics(diagnosticsEl, d, activeView?.state.doc);
       },
     },
-    formatter: { formatter, formatOnSave: true },
+    formatter: { instance: formatter, formatOnSave: true },
   });
 
   return EditorState.create({

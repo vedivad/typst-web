@@ -5,7 +5,7 @@ import type { CompileResult, TypstCompiler } from "@vedivad/typst-web-service";
 import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
-import { TypstWorkerPlugin } from "./plugin.js";
+import { TypstLinterPlugin } from "./plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
   createTypstShikiExtension,
@@ -39,7 +39,7 @@ export interface TypstExtensionsOptions {
   /** Options forwarded to the Typst Shiki highlighting factory. */
   highlighting?: TypstShikiOptions;
   /** Options forwarded to the Typst linter extension. */
-  compiler: TypstLinterOptions;
+  linter: TypstLinterOptions;
   /** Options for the code formatter. Omit to disable. */
   formatter?: TypstFormatterOptions;
 }
@@ -70,7 +70,7 @@ export function createTypstLinter(options: TypstLinterOptions): Extension {
 
   const workerPlugin = ViewPlugin.define(
     () =>
-      new TypstWorkerPlugin({
+      new TypstLinterPlugin({
         compiler,
         filePath,
         getFiles,
@@ -99,7 +99,7 @@ export async function createTypstExtensions(
   options: TypstExtensionsOptions,
 ): Promise<Extension[]> {
   const shikiExtension = await createTypstShikiExtension(options.highlighting);
-  const linterExtension = createTypstLinter(options.compiler);
+  const linterExtension = createTypstLinter(options.linter);
   const extensions: Extension[] = [shikiExtension, linterExtension];
 
   if (options.formatter) {

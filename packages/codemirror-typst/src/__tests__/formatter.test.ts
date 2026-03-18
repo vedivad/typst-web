@@ -109,7 +109,7 @@ describe("diffChanges", () => {
 describe("createTypstFormatter", () => {
   it("calls format on the whole document when no selection", async () => {
     const formatter = mockFormatter();
-    const ext = createTypstFormatter({ formatter });
+    const ext = createTypstFormatter({ instance: formatter });
     const run = getKeyRun(ext, "Shift-Alt-f");
     expect(run).toBeDefined();
 
@@ -122,7 +122,7 @@ describe("createTypstFormatter", () => {
 
   it("calls formatRange when selection exists", async () => {
     const formatter = mockFormatter();
-    const ext = createTypstFormatter({ formatter });
+    const ext = createTypstFormatter({ instance: formatter });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     const view = mockView("hello world", 0, 5);
@@ -137,7 +137,7 @@ describe("createTypstFormatter", () => {
     const formatter = mockFormatter({
       format: vi.fn().mockRejectedValue(new Error("wasm broke")),
     });
-    const ext = createTypstFormatter({ formatter, onError });
+    const ext = createTypstFormatter({ instance: formatter, onError });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     run!(mockView("x"));
@@ -151,7 +151,7 @@ describe("createTypstFormatter", () => {
     const formatter = mockFormatter({
       format: vi.fn().mockRejectedValue(new Error("boom")),
     });
-    const ext = createTypstFormatter({ formatter });
+    const ext = createTypstFormatter({ instance: formatter });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     run!(mockView("x"));
@@ -166,7 +166,7 @@ describe("createTypstFormatter", () => {
     const formatter = mockFormatter({
       format: vi.fn().mockRejectedValue("string error"),
     });
-    const ext = createTypstFormatter({ formatter, onError });
+    const ext = createTypstFormatter({ instance: formatter, onError });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     run!(mockView("x"));
@@ -178,7 +178,7 @@ describe("createTypstFormatter", () => {
 
   it("adds Mod-s binding when formatOnSave is enabled", () => {
     const formatter = mockFormatter();
-    const ext = createTypstFormatter({ formatter, formatOnSave: true });
+    const ext = createTypstFormatter({ instance: formatter, formatOnSave: true });
     const run = getKeyRun(ext, "Mod-s");
     expect(run).toBeDefined();
   });
@@ -188,7 +188,7 @@ describe("createTypstFormatter", () => {
     const formatter = mockFormatter({
       format: vi.fn().mockResolvedValue("saved content"),
     });
-    const ext = createTypstFormatter({ formatter, formatOnSave: onSave });
+    const ext = createTypstFormatter({ instance: formatter, formatOnSave: onSave });
     const run = getKeyRun(ext, "Mod-s");
 
     const view = mockView("original");

@@ -9,6 +9,12 @@ export interface CompileResult {
 
 export interface TypstCompilerOptions {
   /**
+   * Explicit Worker instance. When omitted, an inlined blob worker is created automatically.
+   * Use this for Vite apps to get proper source maps:
+   *   `new TypstCompiler({ worker: new Worker(new URL('typst-web-service/worker', import.meta.url)) })`
+   */
+  worker?: Worker;
+  /**
    * URL to the typst-ts-web-compiler WASM binary.
    * Defaults to the matching version on jsDelivr CDN.
    * Override with a local asset URL for offline support or faster load:
@@ -43,10 +49,10 @@ function toFiles(
  * Manages a Typst compiler worker. Create one instance and share it across
  * all extensions (linter, autocomplete, preview, etc.).
  *
- *   new TypstCompiler()                          // inlined blob worker
- *   new TypstCompiler({ wasmUrl: '...' })        // blob worker with options
- *   new TypstCompiler(myWorker)                  // explicit Worker (Vite)
- *   new TypstCompiler(myWorker, { fonts: [...] })
+ *   new TypstCompiler()                                   // blob worker, defaults
+ *   new TypstCompiler({ wasmUrl: '...' })                 // blob worker, custom WASM
+ *   new TypstCompiler({ worker: myWorker })               // explicit Worker (Vite)
+ *   new TypstCompiler({ worker: myWorker, fonts: [...] }) // explicit Worker + options
  */
 export class TypstCompiler {
   readonly ready: Promise<void>;
@@ -56,17 +62,8 @@ export class TypstCompiler {
   /** The most recent vector artifact from a compile, if any. */
   lastVector?: Uint8Array;
 
-  constructor(workerOrOptions?: Worker | TypstCompilerOptions, options?: TypstCompilerOptions);
-  constructor(
-    workerOrOptions?: Worker | TypstCompilerOptions,
-    options: TypstCompilerOptions = {},
-  ) {
-    if (workerOrOptions instanceof Worker) {
-      this.worker = workerOrOptions;
-    } else {
-      this.worker = createWorker();
-      options = workerOrOptions ?? {};
-    }
+  constructor(options: TypstCompilerOptions = {}) {
+    this.worker = options.worker ?? createWorker();
 
     this.ready = workerRpc(
       this.worker,

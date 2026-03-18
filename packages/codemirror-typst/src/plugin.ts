@@ -14,7 +14,7 @@ export interface PluginOptions {
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
 
-export class TypstWorkerPlugin {
+export class TypstLinterPlugin {
   private controller: AbortController | null = null;
   private path: string;
 
