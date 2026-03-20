@@ -9,11 +9,11 @@ import {
   type TypstCompiler,
 } from "@vedivad/typst-web-service";
 import { typstCompletionSource } from "./completion.js";
-import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
+import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
 import { createTypstHover } from "./hover.js";
-import { TypstLinterPlugin } from "./plugin.js";
+import { TypstPlugin } from "./plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
   createTypstShikiExtension,
@@ -42,7 +42,6 @@ export {
   createTypstFormatter,
   createTypstShikiExtension,
   createTypstShikiHighlighting,
-  lspToCMDiagnostic,
   toCMDiagnostic,
 };
 
@@ -79,76 +78,6 @@ export interface TypstExtensionsOptions {
   highlighting?: TypstShikiOptions;
 }
 
-// ---------------------------------------------------------------------------
-// Low-level API: createTypstLinter (unchanged for backward compat)
-// ---------------------------------------------------------------------------
-
-export interface TypstLinterOptions {
-  /** TypstCompiler instance to use for compilation. */
-  compiler: TypstCompiler;
-  /** tinymist analyzer for push-based diagnostics. Optional. */
-  analyzer?: TypstAnalyzer;
-  /** File path this editor represents. Default: "/main.typ" */
-  filePath?: string;
-  /** Return all project files. The editor's content is included automatically under filePath. */
-  getFiles?: () => Record<string, string>;
-  /** Delay in ms before linting fires after a document change. Default: 0. */
-  delay?: number;
-  /** Optional root path for auto-created analyzer sessions. Default: "/project". */
-  projectRootPath?: string;
-  /** Optional entry path for auto-created analyzer sessions. Default: "/main.typ". */
-  projectEntryPath?: string;
-  /** Called after each successful compile with the full result (e.g. for SVG preview). */
-  onCompile?: (result: CompileResult) => void;
-  /** Called after each lint pass with the resulting diagnostics. */
-  onDiagnostics?: (diagnostics: Diagnostic[]) => void;
-}
-
-/**
- * Create a Typst linter extension for CodeMirror (low-level API).
- *
- *   createTypstLinter({ compiler, filePath: "/main.typ", onDiagnostics })
- */
-export function createTypstLinter(options: TypstLinterOptions): Extension {
-  const {
-    compiler,
-    analyzer,
-    filePath,
-    getFiles,
-    delay = 0,
-    projectRootPath,
-    projectEntryPath,
-    onCompile,
-    onDiagnostics,
-  } = options;
-
-  const workerPlugin = ViewPlugin.define(
-    () =>
-      new TypstLinterPlugin({
-        compiler,
-        analyzer,
-        filePath,
-        getFiles,
-        projectRootPath,
-        projectEntryPath,
-        onCompile,
-        onDiagnostics,
-      }),
-    {},
-  );
-
-  const linterExtension = linter(
-    async (view) => {
-      const plugin = view.plugin(workerPlugin);
-      if (!plugin) return [];
-      return plugin.lint(view);
-    },
-    { delay },
-  );
-
-  return [workerPlugin, linterExtension, lintGutter()];
-}
-
 /**
  * Create the default Typst extension set for CodeMirror.
  *
@@ -171,19 +100,33 @@ export async function createTypstExtensions(
 
   const shiki = await createTypstShikiHighlighting(options.highlighting);
 
-  const linterExtension = createTypstLinter({
-    compiler: options.compiler.instance,
-    analyzer: options.analyzer?.instance,
-    filePath,
-    getFiles,
-    delay: options.compiler.delay,
-    projectRootPath: options.analyzer?.projectRootPath,
-    projectEntryPath: options.analyzer?.projectEntryPath,
-    onCompile: options.compiler.onCompile,
-    onDiagnostics,
-  });
+  const delay = options.compiler.delay ?? 0;
 
-  const extensions: Extension[] = [shiki.extension, linterExtension];
+  const workerPlugin = ViewPlugin.define(
+    () =>
+      new TypstPlugin({
+        compiler: options.compiler.instance,
+        analyzer: options.analyzer?.instance,
+        filePath,
+        getFiles,
+        projectRootPath: options.analyzer?.projectRootPath,
+        projectEntryPath: options.analyzer?.projectEntryPath,
+        onCompile: options.compiler.onCompile,
+        onDiagnostics,
+      }),
+    {},
+  );
+
+  const linterExtension = linter(
+    async (view) => {
+      const plugin = view.plugin(workerPlugin);
+      if (!plugin) return [];
+      return plugin.lint(view);
+    },
+    { delay },
+  );
+
+  const extensions: Extension[] = [shiki.extension, workerPlugin, linterExtension, lintGutter()];
 
   if (options.formatter) {
     extensions.push(createTypstFormatter(options.formatter));

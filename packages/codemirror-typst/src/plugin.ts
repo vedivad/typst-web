@@ -25,7 +25,7 @@ export interface PluginOptions {
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
 
-export class TypstLinterPlugin {
+export class TypstPlugin {
   private static sessionCache = new WeakMap<TypstAnalyzer, AnalyzerSession>();
 
   private controller: AbortController | null = null;
@@ -40,7 +40,7 @@ export class TypstLinterPlugin {
     const analyzer = this.options.analyzer;
     if (!analyzer) return undefined;
 
-    const cached = TypstLinterPlugin.sessionCache.get(analyzer);
+    const cached = TypstPlugin.sessionCache.get(analyzer);
     if (cached) return cached;
 
     const session = new AnalyzerSession({
@@ -48,7 +48,7 @@ export class TypstLinterPlugin {
       rootPath: this.options.projectRootPath ?? "/project",
       entryPath: this.options.projectEntryPath ?? "/main.typ",
     });
-    TypstLinterPlugin.sessionCache.set(analyzer, session);
+    TypstPlugin.sessionCache.set(analyzer, session);
     return session;
   }
 
