@@ -121,7 +121,11 @@ import { TypstAnalyzer } from "@vedivad/typst-web-service";
 const analyzer = new TypstAnalyzer({ wasmUrl: "/path/to/tinymist_bg.wasm" });
 await analyzer.ready;
 
-const diagnostics = await analyzer.didChange("untitled:/project/main.typ", source);
+analyzer.onDiagnostics((uri, diagnostics) => {
+  console.log(uri, diagnostics);
+});
+
+await analyzer.didChange("untitled:/project/main.typ", source);
 const completions = await analyzer.completion("untitled:/project/main.typ", line, character);
 const hover = await analyzer.hover("untitled:/project/main.typ", line, character);
 
@@ -136,7 +140,7 @@ import { TypstAnalyzer, AnalyzerSession } from "@vedivad/typst-web-service";
 const analyzer = new TypstAnalyzer({ wasmUrl: "/path/to/tinymist_bg.wasm" });
 const session = new AnalyzerSession({ analyzer, entryPath: "/main.typ" });
 
-const diagnostics = await session.syncAndDiagnose("/main.typ", source, files);
+await session.sync("/main.typ", source, files);
 ```
 
 ### `codemirror-typst`
@@ -214,7 +218,7 @@ const typstExtensions = await createTypstExtensions({
 });
 ```
 
-When `analyzer` is provided, compiler diagnostics are returned immediately while tinymist analyzes in the background. Once tinymist responds, its push-based diagnostics replace the compiler ones.
+Compiler diagnostics are always returned from the linter. When `analyzer` is provided, tinymist analyzes in the background and its push-based diagnostics replace the compiler ones once they arrive.
 
 #### Format on save
 
