@@ -1,5 +1,5 @@
-import { createWorker, workerRpc } from "./rpc.js";
-import type { DiagnosticMessage } from "./types.js";
+import { createWorker, destroyWorker, workerRpc } from "./rpc.js";
+import type { DiagnosticMessage, WorkerRequest, WorkerResponse } from "./types.js";
 
 export interface CompileResult {
   diagnostics: DiagnosticMessage[];
@@ -65,7 +65,7 @@ export class TypstCompiler {
   constructor(options: TypstCompilerOptions = {}) {
     this.worker = options.worker ?? createWorker();
 
-    this.ready = workerRpc(
+    this.ready = workerRpc<WorkerRequest, WorkerResponse>(
       this.worker,
       {
         type: "init",
@@ -88,7 +88,7 @@ export class TypstCompiler {
     await this.ready;
     const id = ++this.idCounter;
     const files = toFiles(source);
-    const response = await workerRpc(this.worker, {
+    const response = await workerRpc<WorkerRequest, WorkerResponse>(this.worker, {
       type: "compile",
       id,
       files,
@@ -112,7 +112,7 @@ export class TypstCompiler {
     await this.ready;
     const id = ++this.idCounter;
     const files = toFiles(source);
-    const response = await workerRpc(
+    const response = await workerRpc<WorkerRequest, WorkerResponse>(
       this.worker,
       { type: "render", id, files },
       TIMEOUT.RENDER,
@@ -125,8 +125,6 @@ export class TypstCompiler {
 
   destroy(): void {
     const id = ++this.idCounter;
-    workerRpc(this.worker, { type: "destroy", id }, TIMEOUT.DESTROY)
-      .catch((err) => console.error("TypstCompiler destroy failed:", err))
-      .finally(() => this.worker.terminate());
+    destroyWorker(this.worker, { type: "destroy" as const, id }, TIMEOUT.DESTROY, "TypstCompiler");
   }
 }

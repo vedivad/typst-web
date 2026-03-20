@@ -1,8 +1,8 @@
 import { type Diagnostic, linter, lintGutter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
-import type { CompileResult, TypstCompiler } from "@vedivad/typst-web-service";
-import { toCMDiagnostic } from "./diagnostics.js";
+import type { CompileResult, TypstAnalyzer, TypstCompiler } from "@vedivad/typst-web-service";
+import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
 import { TypstLinterPlugin } from "./plugin.js";
@@ -15,10 +15,13 @@ import {
 export type {
   CompileResult,
   FormatConfig,
+  LspDiagnostic,
   TypstCompilerOptions,
   TypstRendererOptions,
 } from "@vedivad/typst-web-service";
 export {
+  AnalyzerSession,
+  TypstAnalyzer,
   TypstCompiler,
   TypstFormatter,
   TypstRenderer,
@@ -32,6 +35,7 @@ export {
   createTypstFormatter,
   createTypstShikiExtension,
   createTypstShikiHighlighting,
+  lspToCMDiagnostic,
   toCMDiagnostic,
 };
 
@@ -47,12 +51,18 @@ export interface TypstExtensionsOptions {
 export interface TypstLinterOptions {
   /** TypstCompiler instance to use for compilation. */
   compiler: TypstCompiler;
+  /** tinymist analyzer for richer LSP diagnostics. Optional. */
+  analyzer?: TypstAnalyzer;
   /** File path this editor represents. Default: "/main.typ" */
   filePath?: string;
   /** Return all project files. The editor's content is included automatically under filePath. */
   getFiles?: () => Record<string, string>;
   /** Delay in ms before linting fires after a document change. Default: 0. */
   delay?: number;
+  /** Optional root path for auto-created analyzer sessions. Default: "/project". */
+  projectRootPath?: string;
+  /** Optional entry path for auto-created analyzer sessions. Default: "/main.typ". */
+  projectEntryPath?: string;
   /** Called after each successful compile with the full result (e.g. for SVG preview). */
   onCompile?: (result: CompileResult) => void;
   /** Called after each lint pass with the resulting diagnostics. */
@@ -65,15 +75,27 @@ export interface TypstLinterOptions {
  *   createTypstLinter({ compiler, filePath: "/main.typ", onDiagnostics })
  */
 export function createTypstLinter(options: TypstLinterOptions): Extension {
-  const { compiler, filePath, getFiles, delay = 0, onCompile, onDiagnostics } =
-    options;
+  const {
+    compiler,
+    analyzer,
+    filePath,
+    getFiles,
+    delay = 0,
+    projectRootPath,
+    projectEntryPath,
+    onCompile,
+    onDiagnostics,
+  } = options;
 
   const workerPlugin = ViewPlugin.define(
     () =>
       new TypstLinterPlugin({
         compiler,
+        analyzer,
         filePath,
         getFiles,
+        projectRootPath,
+        projectEntryPath,
         onCompile,
         onDiagnostics,
       }),

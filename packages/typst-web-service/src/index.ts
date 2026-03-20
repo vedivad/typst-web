@@ -5,3 +5,8 @@ export { TypstRenderer } from "./renderer.js";
 export type { FormatConfig, FormatRangeResult } from "./formatter.js";
 export { TypstFormatter } from "./formatter.js";
 export type { DiagnosticMessage, DiagnosticRange } from "./types.js";
+export type { LspDiagnostic } from "./analyzer-types.js";
+export type { TypstAnalyzerOptions } from "./analyzer.js";
+export { TypstAnalyzer } from "./analyzer.js";
+export type { AnalyzerSessionOptions } from "./analyzer-session.js";
+export { AnalyzerSession } from "./analyzer-session.js";

@@ -2,11 +2,13 @@ import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
   createTypstExtensions,
+  TypstAnalyzer,
   TypstCompiler,
   TypstFormatter,
   TypstRenderer,
 } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
+import tinymistWasmUrl from "tinymist-web/pkg/tinymist_bg.wasm?url";
 import { updateDiagnostics } from "./diagnostics";
 
 // --- File contents ---
@@ -42,6 +44,7 @@ const exportBtn = document.getElementById("export-pdf") as HTMLButtonElement;
 const formatter = new TypstFormatter({ tab_spaces: 2, max_width: 80 });
 const compiler = new TypstCompiler();
 const renderer = new TypstRenderer();
+const analyzer = new TypstAnalyzer({ wasmUrl: tinymistWasmUrl });
 
 const filePaths = Object.keys(files);
 
@@ -59,6 +62,7 @@ async function makeState(path: string, doc: string): Promise<EditorState> {
     },
     linter: {
       compiler,
+      analyzer,
       filePath: path,
       getFiles: () => files,
       onCompile: async (result) => {
