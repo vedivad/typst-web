@@ -182,6 +182,46 @@ header p {
   color: #7ecfff;
 }
 
+/* Hover tooltip */
+.cm-typst-hover {
+  max-width: 500px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 6px 10px;
+}
+.cm-typst-hover pre {
+  margin: 0.4em 0;
+  padding: 0.4em 0.6em;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.cm-typst-hover code {
+  font-family: "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  font-size: 0.9em;
+}
+.cm-typst-hover p {
+  margin: 0.3em 0;
+}
+.cm-typst-hover p:first-child {
+  margin-top: 0;
+}
+.cm-typst-hover p:last-child {
+  margin-bottom: 0;
+}
+.cm-typst-hover h1,
+.cm-typst-hover h2,
+.cm-typst-hover h3 {
+  margin: 0.5em 0 0.2em;
+  font-size: 0.85em;
+  color: #7ecfff;
+}
+.cm-typst-hover hr {
+  border: none;
+  border-top: 1px solid #555;
+  margin: 0.4em 0;
+}
+
 /* Preview */
 .preview {
   flex: 1;

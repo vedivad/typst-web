@@ -1,11 +1,19 @@
+import { autocompletion } from "@codemirror/autocomplete";
 import { type Diagnostic, linter, lintGutter } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { ViewPlugin } from "@codemirror/view";
-import { TypstService } from "@vedivad/typst-web-service";
+import {
+  AnalyzerSession,
+  type CompileResult,
+  type TypstAnalyzer,
+  type TypstCompiler,
+} from "@vedivad/typst-web-service";
+import { typstCompletionSource } from "./completion.js";
 import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
-import { TypstWorkerPlugin } from "./plugin.js";
+import { createTypstHover } from "./hover.js";
+import { TypstPlugin } from "./plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
   createTypstShikiExtension,
@@ -15,9 +23,16 @@ import {
 export type {
   CompileResult,
   FormatConfig,
-  RendererOptions,
+  TypstCompilerOptions,
+  TypstRendererOptions,
 } from "@vedivad/typst-web-service";
-export { TypstFormatter } from "@vedivad/typst-web-service";
+export {
+  AnalyzerSession,
+  TypstAnalyzer,
+  TypstCompiler,
+  TypstFormatter,
+  TypstRenderer,
+} from "@vedivad/typst-web-service";
 export type {
   TypstFormatterOptions,
   TypstShikiHighlighting,
@@ -27,46 +42,76 @@ export {
   createTypstFormatter,
   createTypstShikiExtension,
   createTypstShikiHighlighting,
-  TypstService,
   toCMDiagnostic,
 };
 
-export interface TypstExtensionsOptions {
-  /** Options forwarded to the Typst Shiki highlighting factory. */
-  highlighting?: TypstShikiOptions;
-  /** Options forwarded to the Typst linter extension. */
-  compiler: TypstLinterOptions;
-  /** Options for the code formatter. Omit to disable. */
-  formatter?: TypstFormatterOptions;
-}
+// ---------------------------------------------------------------------------
+// High-level API: createTypstExtensions
+// ---------------------------------------------------------------------------
 
-export interface TypstLinterOptions {
-  /** TypstService instance to use for compilation and diagnostics. */
-  service: TypstService;
+export interface TypstExtensionsOptions {
   /** File path this editor represents. Default: "/main.typ" */
   filePath?: string;
   /** Return all project files. The editor's content is included automatically under filePath. */
   getFiles?: () => Record<string, string>;
-  /** Delay in ms before linting fires after a document change. Default: 0. */
-  delay?: number;
   /** Called after each lint pass with the resulting diagnostics. */
   onDiagnostics?: (diagnostics: Diagnostic[]) => void;
+  /** Compiler config. Handles compilation for preview/PDF and fallback diagnostics. */
+  compiler: {
+    instance: TypstCompiler;
+    /** Called after each successful compile with the full result (e.g. for SVG preview). */
+    onCompile?: (result: CompileResult) => void;
+    /** Delay in ms before linting fires after a document change. Default: 0. */
+    delay?: number;
+  };
+  /** Tinymist analyzer for diagnostics, autocompletion, and hover. Omit to disable. */
+  analyzer?: {
+    instance: TypstAnalyzer;
+    /** Project root path for the analyzer session. Default: "/project". */
+    projectRootPath?: string;
+    /** Entry path for the analyzer session. Default: "/main.typ". */
+    projectEntryPath?: string;
+  };
+  /** Code formatter. Omit to disable. */
+  formatter?: TypstFormatterOptions;
+  /** Syntax highlighting. Omit for defaults (github-dark). */
+  highlighting?: TypstShikiOptions;
 }
 
 /**
- * Create a Typst linter extension for CodeMirror.
+ * Create the default Typst extension set for CodeMirror.
  *
- *   createTypstLinter({ service, filePath: "/main.typ", onDiagnostics })
+ * ```ts
+ * const extensions = await createTypstExtensions({
+ *   filePath: "/main.typ",
+ *   getFiles: () => files,
+ *   compiler: { instance: compiler, onCompile: (r) => { ... } },
+ *   analyzer: { instance: analyzer },
+ *   formatter: { instance: formatter, formatOnSave: true },
+ *   highlighting: { theme: "dark" },
+ *   onDiagnostics: (d) => { ... },
+ * });
+ * ```
  */
-export function createTypstLinter(options: TypstLinterOptions): Extension {
-  const { service, filePath, getFiles, delay = 0, onDiagnostics } = options;
+export async function createTypstExtensions(
+  options: TypstExtensionsOptions,
+): Promise<Extension[]> {
+  const { filePath, getFiles, onDiagnostics } = options;
 
-  const workerPlugin = ViewPlugin.define(
+  const shiki = await createTypstShikiHighlighting(options.highlighting);
+
+  const delay = options.compiler.delay ?? 0;
+
+  const typstPlugin = ViewPlugin.define(
     () =>
-      new TypstWorkerPlugin({
-        service,
+      new TypstPlugin({
+        compiler: options.compiler.instance,
+        analyzer: options.analyzer?.instance,
         filePath,
         getFiles,
+        projectRootPath: options.analyzer?.projectRootPath,
+        projectEntryPath: options.analyzer?.projectEntryPath,
+        onCompile: options.compiler.onCompile,
         onDiagnostics,
       }),
     {},
@@ -74,28 +119,45 @@ export function createTypstLinter(options: TypstLinterOptions): Extension {
 
   const linterExtension = linter(
     async (view) => {
-      const plugin = view.plugin(workerPlugin);
+      const plugin = view.plugin(typstPlugin);
       if (!plugin) return [];
       return plugin.lint(view);
     },
     { delay },
   );
 
-  return [workerPlugin, linterExtension, lintGutter()];
-}
-
-/**
- * Create the default Typst extension set for CodeMirror.
- */
-export async function createTypstExtensions(
-  options: TypstExtensionsOptions,
-): Promise<Extension[]> {
-  const shikiExtension = await createTypstShikiExtension(options.highlighting);
-  const linterExtension = createTypstLinter(options.compiler);
-  const extensions: Extension[] = [shikiExtension, linterExtension];
+  const extensions: Extension[] = [
+    shiki.extension,
+    typstPlugin,
+    linterExtension,
+    lintGutter(),
+  ];
 
   if (options.formatter) {
     extensions.push(createTypstFormatter(options.formatter));
+  }
+
+  if (options.analyzer) {
+    const session = new AnalyzerSession({
+      analyzer: options.analyzer.instance,
+      rootPath: options.analyzer.projectRootPath,
+      entryPath: options.analyzer.projectEntryPath,
+    });
+
+    extensions.push(
+      autocompletion({
+        override: [typstCompletionSource({ session, filePath, getFiles })],
+      }),
+    );
+
+    extensions.push(
+      createTypstHover({
+        session,
+        filePath,
+        getFiles,
+        highlightCode: shiki.highlightCode,
+      }),
+    );
   }
 
   return extensions;

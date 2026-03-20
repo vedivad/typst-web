@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
-import { describe, expect, it } from "vitest";
 import type { DiagnosticMessage } from "@vedivad/typst-web-service";
+import { describe, expect, it } from "vitest";
 import { toCMDiagnostic } from "../diagnostics.js";
 
 function makeState(doc: string): EditorState {

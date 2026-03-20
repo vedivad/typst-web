@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { TypstFormatter } from "../formatter.js";
 
 describe("TypstFormatter", () => {
@@ -38,4 +38,3 @@ describe("TypstFormatter", () => {
     expect(typeof wideResult).toBe("string");
   });
 });
-

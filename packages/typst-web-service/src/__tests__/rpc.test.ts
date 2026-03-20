@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkerRequest, WorkerResponse } from "../types.js";
 import { workerRpc } from "../rpc.js";
+import type { WorkerRequest, WorkerResponse } from "../types.js";
 
 type MessageHandler = (e: MessageEvent<WorkerResponse>) => void;
 
@@ -44,7 +44,7 @@ describe("workerRpc", () => {
 
     const result = await promise;
     expect(result).toEqual({ type: "result", id: 42, diagnostics: [] });
-    expect(worker.postMessage).toHaveBeenCalledWith(request);
+    expect(worker.postMessage).toHaveBeenCalledWith(request, []);
   });
 
   it("ignores messages with wrong id", async () => {
@@ -74,7 +74,7 @@ describe("workerRpc", () => {
 
     vi.advanceTimersByTime(1001);
 
-    await expect(promise).rejects.toThrow("typst worker timed out after 1000ms");
+    await expect(promise).rejects.toThrow("worker timed out after 1000ms");
   });
 
   it("cleans up listener on resolve", async () => {

@@ -12,6 +12,9 @@
     },
     "./worker": {
       "import": "./dist/worker.js"
+    },
+    "./analyzer-worker": {
+      "import": "./dist/analyzer-worker.js"
     }
   },
   "files": [
@@ -23,8 +26,10 @@
   },
   "dependencies": {
     "@myriaddreamin/typst.ts": "^0.7.0-rc2",
+    "@myriaddreamin/typst-ts-renderer": "^0.7.0-rc2",
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
-    "@typstyle/typstyle-wasm-bundler": "^0.14.4"
+    "@typstyle/typstyle-wasm-bundler": "^0.14.4",
+    "tinymist-web": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.14.10/tinymist-web.tar.gz"
   },
   "devDependencies": {
     "esbuild": "^0.27.3",

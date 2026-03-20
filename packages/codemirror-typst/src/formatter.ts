@@ -5,7 +5,7 @@ import type { TypstFormatter } from "@vedivad/typst-web-service";
 
 export interface TypstFormatterOptions {
   /** TypstFormatter instance to use for formatting. */
-  formatter: TypstFormatter;
+  instance: TypstFormatter;
   /** Keybinding for format. Default: "Shift-Alt-f" */
   keybinding?: string;
   /**
@@ -49,7 +49,11 @@ export function diffChanges(oldStr: string, newStr: string): ChangeSpec[] {
   // Find common suffix (not overlapping with prefix)
   let oldEnd = oldStr.length;
   let newEnd = newStr.length;
-  while (oldEnd > from && newEnd > from && oldStr[oldEnd - 1] === newStr[newEnd - 1]) {
+  while (
+    oldEnd > from &&
+    newEnd > from &&
+    oldStr[oldEnd - 1] === newStr[newEnd - 1]
+  ) {
     oldEnd--;
     newEnd--;
   }
@@ -121,8 +125,12 @@ async function formatAndSave(
 export function createTypstFormatter(
   options: TypstFormatterOptions,
 ): Extension {
-  const { formatter, keybinding = "Shift-Alt-f", formatOnSave, onError } =
-    options;
+  const {
+    instance: formatter,
+    keybinding = "Shift-Alt-f",
+    formatOnSave,
+    onError,
+  } = options;
 
   const keys = [
     {
