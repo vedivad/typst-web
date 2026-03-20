@@ -13,6 +13,8 @@ export interface TypstShikiOptions {
 export interface TypstShikiHighlighting {
   extension: Extension;
   getTheme: (name?: string, view?: EditorView) => Extension;
+  /** Highlight a code string to HTML. Falls back to Typst highlighting for unknown languages. */
+  highlightCode: (code: string, language: string) => string;
 }
 
 export async function createTypstShikiHighlighting(
@@ -47,18 +49,29 @@ export async function createTypstShikiHighlighting(
       ? createOnigurumaEngine(import("shiki/wasm"))
       : createJavaScriptRegexEngine();
 
-  const highlighter = createHighlighter({
+  // Keep as a promise — codemirror-shiki resolves it asynchronously to avoid
+  // re-entrant EditorView.update calls during construction.
+  const highlighterPromise = createHighlighter({
     langs: ["typst"],
     themes: uniqueThemes,
     engine,
   });
+  const highlighter = await highlighterPromise;
+
+  const defaultTheme = resolveTheme(options.defaultColor);
 
   const buildExtension = (theme: string): Extension =>
-    shiki({ highlighter, language: "typst", theme });
+    shiki({ highlighter: highlighterPromise, language: "typst", theme });
+
+  const highlightCode = (code: string, language: string): string => {
+    const lang = highlighter.getLoadedLanguages().includes(language) ? language : "typst";
+    return highlighter.codeToHtml(code, { lang, theme: defaultTheme });
+  };
 
   return {
-    extension: buildExtension(resolveTheme(options.defaultColor)),
+    extension: buildExtension(defaultTheme),
     getTheme: (name?: string) => buildExtension(resolveTheme(name)),
+    highlightCode,
   };
 }
 

@@ -82,8 +82,6 @@ export interface TypstAnalyzerExtensionOptions {
   projectRootPath?: string;
   /** Entry path for the analyzer session. Default: "/main.typ". */
   projectEntryPath?: string;
-  /** Optional function to syntax-highlight code blocks in hover tooltips. Receives code and language, returns HTML. */
-  highlightCode?: (code: string, language: string) => string;
 }
 
 /**
@@ -131,16 +129,16 @@ export function createTypstLinter(options: TypstLinterOptions): Extension {
 export async function createTypstExtensions(
   options: TypstExtensionsOptions,
 ): Promise<Extension[]> {
-  const shikiExtension = await createTypstShikiExtension(options.highlighting);
+  const shiki = await createTypstShikiHighlighting(options.highlighting);
   const linterExtension = createTypstLinter(options.linter);
-  const extensions: Extension[] = [shikiExtension, linterExtension];
+  const extensions: Extension[] = [shiki.extension, linterExtension];
 
   if (options.formatter) {
     extensions.push(createTypstFormatter(options.formatter));
   }
 
   if (options.analyzer) {
-    const { analyzer, filePath, getFiles, projectRootPath, projectEntryPath, highlightCode } =
+    const { analyzer, filePath, getFiles, projectRootPath, projectEntryPath } =
       options.analyzer;
 
     const session = new AnalyzerSession({
@@ -157,7 +155,7 @@ export async function createTypstExtensions(
       }),
     );
 
-    extensions.push(createTypstHover({ session, filePath, getFiles, highlightCode }));
+    extensions.push(createTypstHover({ session, filePath, getFiles, highlightCode: shiki.highlightCode }));
   }
 
   return extensions;
