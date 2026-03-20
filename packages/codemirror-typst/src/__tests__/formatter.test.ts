@@ -1,9 +1,11 @@
 import { EditorState } from "@codemirror/state";
-import { describe, expect, it, vi } from "vitest";
 import type { TypstFormatter } from "@vedivad/typst-web-service";
+import { describe, expect, it, vi } from "vitest";
 import { createTypstFormatter, diffChanges } from "../formatter.js";
 
-function mockFormatter(overrides: Partial<TypstFormatter> = {}): TypstFormatter {
+function mockFormatter(
+  overrides: Partial<TypstFormatter> = {},
+): TypstFormatter {
   return {
     format: vi.fn().mockResolvedValue("formatted"),
     formatRange: vi.fn().mockResolvedValue({ start: 0, end: 3, text: "fmt" }),
@@ -25,7 +27,10 @@ function mockView(doc: string, selFrom = 0, selTo = 0) {
 }
 
 /** Extract the `run` function for a given key from a keymap extension. */
-function getKeyRun(ext: any, key: string): ((view: any) => boolean) | undefined {
+function getKeyRun(
+  ext: any,
+  key: string,
+): ((view: any) => boolean) | undefined {
   // keymap.of returns a Facet value; walk through to find the binding
   const flat = Array.isArray(ext) ? ext.flat(Infinity) : [ext];
   for (const entry of flat) {
@@ -57,7 +62,10 @@ describe("diffChanges", () => {
     const changes = diffChanges(old, now);
     expect(changes).toHaveLength(1);
     // Applying the change to old should produce now
-    const result = old.slice(0, changes[0].from) + changes[0].insert + old.slice(changes[0].to as number);
+    const result =
+      old.slice(0, changes[0].from) +
+      changes[0].insert +
+      old.slice(changes[0].to as number);
     expect(result).toBe(now);
   });
 
@@ -66,7 +74,10 @@ describe("diffChanges", () => {
     const now = "aaa\nccc";
     const changes = diffChanges(old, now);
     expect(changes).toHaveLength(1);
-    const result = old.slice(0, changes[0].from) + changes[0].insert + old.slice(changes[0].to as number);
+    const result =
+      old.slice(0, changes[0].from) +
+      changes[0].insert +
+      old.slice(changes[0].to as number);
     expect(result).toBe(now);
   });
 
@@ -89,7 +100,10 @@ describe("diffChanges", () => {
     const now = "xxx\nyyy";
     const changes = diffChanges(old, now);
     expect(changes).toHaveLength(1);
-    const result = old.slice(0, changes[0].from) + changes[0].insert + old.slice(changes[0].to as number);
+    const result =
+      old.slice(0, changes[0].from) +
+      changes[0].insert +
+      old.slice(changes[0].to as number);
     expect(result).toBe(now);
   });
 
@@ -142,7 +156,9 @@ describe("createTypstFormatter", () => {
 
     run!(mockView("x"));
     await vi.waitFor(() => {
-      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "wasm broke" }));
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "wasm broke" }),
+      );
     });
   });
 
@@ -178,7 +194,10 @@ describe("createTypstFormatter", () => {
 
   it("adds Mod-s binding when formatOnSave is enabled", () => {
     const formatter = mockFormatter();
-    const ext = createTypstFormatter({ instance: formatter, formatOnSave: true });
+    const ext = createTypstFormatter({
+      instance: formatter,
+      formatOnSave: true,
+    });
     const run = getKeyRun(ext, "Mod-s");
     expect(run).toBeDefined();
   });
@@ -188,7 +207,10 @@ describe("createTypstFormatter", () => {
     const formatter = mockFormatter({
       format: vi.fn().mockResolvedValue("saved content"),
     });
-    const ext = createTypstFormatter({ instance: formatter, formatOnSave: onSave });
+    const ext = createTypstFormatter({
+      instance: formatter,
+      formatOnSave: onSave,
+    });
     const run = getKeyRun(ext, "Mod-s");
 
     const view = mockView("original");

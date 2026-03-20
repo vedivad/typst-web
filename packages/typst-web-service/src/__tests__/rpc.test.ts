@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { WorkerRequest, WorkerResponse } from "../types.js";
 import { workerRpc } from "../rpc.js";
+import type { WorkerRequest, WorkerResponse } from "../types.js";
 
 type MessageHandler = (e: MessageEvent<WorkerResponse>) => void;
 

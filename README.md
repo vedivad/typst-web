@@ -6,7 +6,7 @@
 
 - **Compilation** — compile Typst source to vector artifacts, SVG, or PDF via WASM in a Web Worker
 - **Diagnostics** — full diagnostic reporting (errors, warnings, info) with source ranges
-- **LSP analysis** — optional [tinymist](https://github.com/Myriad-Dreamin/tinymist) integration for richer diagnostics, completion, and hover
+- **LSP analysis** — optional [tinymist](https://github.com/Myriad-Dreamin/tinymist) integration for diagnostics, completion, and hover
 - **Multi-file projects** — compile across multiple files with `@preview/` package support
 - **SVG preview** — live SVG rendering via `@myriaddreamin/typst-ts-renderer`
 - **PDF export** — render to PDF and download
@@ -21,10 +21,10 @@
 
 ## Packages
 
-| Package | Purpose |
-| --- | --- |
+| Package                                                    | Purpose                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
 | [`@vedivad/typst-web-service`](packages/typst-web-service) | Core worker-backed Typst compile/render/analyze service + formatter |
-| [`@vedivad/codemirror-typst`](packages/codemirror-typst) | CodeMirror 6 extension for highlighting, linting, and formatting |
+| [`@vedivad/codemirror-typst`](packages/codemirror-typst)   | CodeMirror 6 extension for highlighting, linting, and formatting    |
 
 ## Usage
 
@@ -32,12 +32,12 @@
 
 Four independent classes, each wrapping a WASM module with lazy loading:
 
-| Class | Runs on | Purpose |
-| --- | --- | --- |
-| `TypstCompiler` | Web Worker | `compile()` → diagnostics + vector, `compilePdf()` → PDF bytes |
-| `TypstRenderer` | Main thread | `renderSvg(vector)` → SVG string |
-| `TypstFormatter` | Main thread | `format(source)`, `formatRange(source, start, end)` |
-| `TypstAnalyzer` | Web Worker | LSP diagnostics, completion, hover via tinymist |
+| Class            | Runs on     | Purpose                                                        |
+| ---------------- | ----------- | -------------------------------------------------------------- |
+| `TypstCompiler`  | Web Worker  | `compile()` → diagnostics + vector, `compilePdf()` → PDF bytes |
+| `TypstRenderer`  | Main thread | `renderSvg(vector)` → SVG string                               |
+| `TypstFormatter` | Main thread | `format(source)`, `formatRange(source, start, end)`            |
+| `TypstAnalyzer`  | Web Worker  | LSP diagnostics, completion, hover via tinymist                |
 
 #### Compile and render SVG
 
@@ -102,14 +102,14 @@ const result = await formatter.formatRange(source, selectionStart, selectionEnd)
 
 `TypstFormatter` accepts any subset of [typstyle's config](https://github.com/typstyle-rs/typstyle):
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `tab_spaces` | `number` | `2` | Spaces per indentation level |
-| `max_width` | `number` | `80` | Maximum line width |
-| `blank_lines_upper_bound` | `number` | — | Max consecutive blank lines |
-| `collapse_markup_spaces` | `boolean` | — | Collapse whitespace in markup to a single space |
-| `reorder_import_items` | `boolean` | — | Sort import items alphabetically |
-| `wrap_text` | `boolean` | — | Wrap text to fit within `max_width` |
+| Option                    | Type      | Default | Description                                     |
+| ------------------------- | --------- | ------- | ----------------------------------------------- |
+| `tab_spaces`              | `number`  | `2`     | Spaces per indentation level                    |
+| `max_width`               | `number`  | `80`    | Maximum line width                              |
+| `blank_lines_upper_bound` | `number`  | —       | Max consecutive blank lines                     |
+| `collapse_markup_spaces`  | `boolean` | —       | Collapse whitespace in markup to a single space |
+| `reorder_import_items`    | `boolean` | —       | Sort import items alphabetically                |
+| `wrap_text`               | `boolean` | —       | Wrap text to fit within `max_width`             |
 
 #### LSP analysis with tinymist
 
@@ -155,17 +155,12 @@ import {
 const compiler = new TypstCompiler();
 
 const typstExtensions = await createTypstExtensions({
-  highlighting: {
-    themes: { light: "github-light", dark: "github-dark" },
-    defaultColor: "dark",
-  },
-  linter: {
-    compiler,
-    onDiagnostics: (diagnostics) => console.log(diagnostics),
-  },
+  compiler: { instance: compiler },
+  highlighting: { theme: "dark" },
   formatter: {
     instance: new TypstFormatter({ tab_spaces: 2, max_width: 80 }),
   },
+  onDiagnostics: (diagnostics) => console.log(diagnostics),
 });
 
 new EditorView({
@@ -179,19 +174,21 @@ new EditorView({
 
 #### Multi-file editor with tinymist
 
-For multi-file projects, share a single `TypstCompiler` across editors. Each editor declares its `filePath` and provides a `getFiles` getter. Adding a `TypstAnalyzer` enables richer LSP diagnostics in the background.
+For multi-file projects, share a single `TypstCompiler` across editors. Each editor declares its `filePath` and provides a `getFiles` getter. Adding a `TypstAnalyzer` enables autocompletion, hover, and push-based diagnostics.
 
 ```ts
 import {
   createTypstExtensions,
   TypstAnalyzer,
   TypstCompiler,
+  TypstFormatter,
   TypstRenderer,
 } from "@vedivad/codemirror-typst";
 
 const compiler = new TypstCompiler();
 const renderer = new TypstRenderer();
 const analyzer = new TypstAnalyzer({ wasmUrl: "/path/to/tinymist_bg.wasm" });
+const formatter = new TypstFormatter({ tab_spaces: 2, max_width: 80 });
 
 const files: Record<string, string> = {
   "/main.typ": "...",
@@ -199,15 +196,10 @@ const files: Record<string, string> = {
 };
 
 const typstExtensions = await createTypstExtensions({
-  highlighting: {
-    themes: { light: "github-light", dark: "github-dark" },
-    defaultColor: "dark",
-  },
-  linter: {
-    compiler,
-    analyzer, // optional — enables tinymist LSP diagnostics
-    filePath: "/main.typ",
-    getFiles: () => files,
+  filePath: "/main.typ",
+  getFiles: () => files,
+  compiler: {
+    instance: compiler,
     onCompile: async (result) => {
       if (result.vector) {
         const svg = await renderer.renderSvg(result.vector);
@@ -215,34 +207,14 @@ const typstExtensions = await createTypstExtensions({
       }
     },
   },
-  formatter: { instance: formatter },
+  analyzer: { instance: analyzer },
+  formatter: { instance: formatter, formatOnSave: true },
+  highlighting: { theme: "dark" },
+  onDiagnostics: (d) => console.log(d),
 });
 ```
 
-When `analyzer` is provided, the linter returns fast compiler diagnostics immediately and kicks off tinymist analysis in the background. Once tinymist responds, its diagnostics replace the compiler ones.
-
-#### Using individual extensions
-
-`createTypstExtensions` is a convenience wrapper. You can also use the extensions individually:
-
-```ts
-import {
-  createTypstShikiExtension,
-  createTypstLinter,
-  createTypstFormatter,
-  TypstCompiler,
-  TypstFormatter,
-} from "@vedivad/codemirror-typst";
-
-const shiki = await createTypstShikiExtension({ /* ... */ });
-const linter = createTypstLinter({ compiler: new TypstCompiler(), filePath: "/main.typ" });
-const format = createTypstFormatter({
-  instance: new TypstFormatter({ max_width: 100 }),
-});
-
-// Use any combination
-const extensions = [shiki, linter, format];
-```
+When `analyzer` is provided, compiler diagnostics are returned immediately while tinymist analyzes in the background. Once tinymist responds, its push-based diagnostics replace the compiler ones.
 
 #### Format on save
 
@@ -270,13 +242,13 @@ formatter: {
 
 ### Commands
 
-| Command | Description |
-| --- | --- |
-| `just install` | Install dependencies |
-| `just build` | Build both packages |
-| `just test` | Run tests with [Vitest](https://vitest.dev) |
-| `just format` | Format and lint with [Biome](https://biomejs.dev) |
-| `just dev` | Build packages and start the demo dev server |
+| Command        | Description                                       |
+| -------------- | ------------------------------------------------- |
+| `just install` | Install dependencies                              |
+| `just build`   | Build both packages                               |
+| `just test`    | Run tests with [Vitest](https://vitest.dev)       |
+| `just format`  | Format and lint with [Biome](https://biomejs.dev) |
+| `just dev`     | Build packages and start the demo dev server      |
 
 ### Testing
 

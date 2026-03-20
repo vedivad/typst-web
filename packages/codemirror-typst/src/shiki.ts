@@ -41,7 +41,10 @@ export async function createTypstShikiHighlighting(
   }
 
   const fallbackAlias = Object.keys(themes)[0] ?? "dark";
-  const defaultAlias = options.defaultColor ?? options.theme ?? (themes.dark ? "dark" : fallbackAlias);
+  const defaultAlias =
+    options.defaultColor ??
+    options.theme ??
+    (themes.dark ? "dark" : fallbackAlias);
   const resolveTheme = (alias?: string): string => {
     if (alias && themes[alias]) return themes[alias];
     return themes[defaultAlias] ?? themes[fallbackAlias] ?? "github-dark";
@@ -69,7 +72,9 @@ export async function createTypstShikiHighlighting(
     shiki({ highlighter: highlighterPromise, language: "typst", theme });
 
   const highlightCode = (code: string, language: string): string => {
-    const lang = highlighter.getLoadedLanguages().includes(language) ? language : "typst";
+    const lang = highlighter.getLoadedLanguages().includes(language)
+      ? language
+      : "typst";
     return highlighter.codeToHtml(code, { lang, theme: defaultTheme });
   };
 

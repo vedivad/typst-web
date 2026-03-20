@@ -8,7 +8,7 @@ import {
 } from "@vedivad/typst-web-service";
 import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
 
-export interface PluginOptions {
+export interface TypstPluginOptions {
   compiler: TypstCompiler;
   /** tinymist analyzer for push-based diagnostics. When set, diagnostics are pushed asynchronously. */
   analyzer?: TypstAnalyzer;
@@ -32,7 +32,7 @@ export class TypstPlugin {
   private path: string;
   private unsubscribe?: () => void;
 
-  constructor(private options: PluginOptions) {
+  constructor(private options: TypstPluginOptions) {
     this.path = options.filePath ?? "/main.typ";
   }
 

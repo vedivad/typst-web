@@ -38,4 +38,3 @@ describe("TypstFormatter", () => {
     expect(typeof wideResult).toBe("string");
   });
 });
-

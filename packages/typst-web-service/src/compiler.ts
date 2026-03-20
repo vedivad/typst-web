@@ -1,5 +1,9 @@
 import { createWorker, destroyWorker, workerRpc } from "./rpc.js";
-import type { DiagnosticMessage, WorkerRequest, WorkerResponse } from "./types.js";
+import type {
+  DiagnosticMessage,
+  WorkerRequest,
+  WorkerResponse,
+} from "./types.js";
 
 export interface CompileResult {
   diagnostics: DiagnosticMessage[];
@@ -88,11 +92,14 @@ export class TypstCompiler {
     await this.ready;
     const id = ++this.idCounter;
     const files = toFiles(source);
-    const response = await workerRpc<WorkerRequest, WorkerResponse>(this.worker, {
-      type: "compile",
-      id,
-      files,
-    });
+    const response = await workerRpc<WorkerRequest, WorkerResponse>(
+      this.worker,
+      {
+        type: "compile",
+        id,
+        files,
+      },
+    );
     if (response.type === "cancelled") return { diagnostics: [] };
     if (response.type === "result") {
       const vector = response.vector
@@ -125,6 +132,11 @@ export class TypstCompiler {
 
   destroy(): void {
     const id = ++this.idCounter;
-    destroyWorker(this.worker, { type: "destroy" as const, id }, TIMEOUT.DESTROY, "TypstCompiler");
+    destroyWorker(
+      this.worker,
+      { type: "destroy" as const, id },
+      TIMEOUT.DESTROY,
+      "TypstCompiler",
+    );
   }
 }

@@ -1,9 +1,18 @@
-import type { AnalyzerDiagnosticEvent, AnalyzerMessage, AnalyzerRequest, AnalyzerResponse, LspDiagnostic } from "./analyzer-types.js";
+import type {
+  AnalyzerDiagnosticEvent,
+  AnalyzerMessage,
+  AnalyzerRequest,
+  AnalyzerResponse,
+  LspDiagnostic,
+} from "./analyzer-types.js";
 import { createAnalyzerWorker, destroyWorker, workerRpc } from "./rpc.js";
 
 export type { LspDiagnostic };
 
-export type DiagnosticsListener = (uri: string, diagnostics: LspDiagnostic[]) => void;
+export type DiagnosticsListener = (
+  uri: string,
+  diagnostics: LspDiagnostic[],
+) => void;
 
 export interface TypstAnalyzerOptions {
   /**
@@ -42,22 +51,29 @@ export class TypstAnalyzer {
 
   constructor(options: TypstAnalyzerOptions) {
     this.worker = options.worker ?? createAnalyzerWorker();
-    const absoluteWasmUrl = new URL(options.wasmUrl, globalThis.location?.href).href;
+    const absoluteWasmUrl = new URL(options.wasmUrl, globalThis.location?.href)
+      .href;
 
     // Listen for unsolicited diagnostic push notifications from the worker.
-    this.worker.addEventListener("message", (e: MessageEvent<AnalyzerMessage>) => {
-      if (e.data.type === "diagnostics" && !("id" in e.data)) {
-        const event = e.data as AnalyzerDiagnosticEvent;
-        for (const listener of this.diagnosticsListeners) {
-          listener(event.uri, event.diagnostics);
+    this.worker.addEventListener(
+      "message",
+      (e: MessageEvent<AnalyzerMessage>) => {
+        if (e.data.type === "diagnostics" && !("id" in e.data)) {
+          const event = e.data as AnalyzerDiagnosticEvent;
+          for (const listener of this.diagnosticsListeners) {
+            listener(event.uri, event.diagnostics);
+          }
         }
-      }
-    });
+      },
+    );
 
-    this.ready = this.rpc({ type: "init", id: ++this.idCounter, wasmUrl: absoluteWasmUrl }, TIMEOUT.INIT)
-      .then((res) => {
-        if (res.type === "error") throw new Error(`TypstAnalyzer init failed: ${res.message}`);
-      });
+    this.ready = this.rpc(
+      { type: "init", id: ++this.idCounter, wasmUrl: absoluteWasmUrl },
+      TIMEOUT.INIT,
+    ).then((res) => {
+      if (res.type === "error")
+        throw new Error(`TypstAnalyzer init failed: ${res.message}`);
+    });
   }
 
   /**
@@ -69,13 +85,21 @@ export class TypstAnalyzer {
     return () => this.diagnosticsListeners.delete(listener);
   }
 
-  private rpc(request: AnalyzerRequest, timeoutMs: number = TIMEOUT.REQUEST): Promise<AnalyzerResponse> {
+  private rpc(
+    request: AnalyzerRequest,
+    timeoutMs: number = TIMEOUT.REQUEST,
+  ): Promise<AnalyzerResponse> {
     return workerRpc(this.worker, request, timeoutMs);
   }
 
   async didOpen(uri: string, content: string): Promise<void> {
     await this.ready;
-    const res = await this.rpc({ type: "didOpen", id: ++this.idCounter, uri, content });
+    const res = await this.rpc({
+      type: "didOpen",
+      id: ++this.idCounter,
+      uri,
+      content,
+    });
     if (res.type === "error") throw new Error(res.message);
     this.openedUris.add(uri);
   }
@@ -92,13 +116,29 @@ export class TypstAnalyzer {
     }
 
     const version = ++this.versionCounter;
-    const res = await this.rpc({ type: "didChange", id: ++this.idCounter, uri, version, content });
+    const res = await this.rpc({
+      type: "didChange",
+      id: ++this.idCounter,
+      uri,
+      version,
+      content,
+    });
     if (res.type === "error") throw new Error(res.message);
   }
 
-  async completion(uri: string, line: number, character: number): Promise<unknown> {
+  async completion(
+    uri: string,
+    line: number,
+    character: number,
+  ): Promise<unknown> {
     await this.ready;
-    const res = await this.rpc({ type: "completion", id: ++this.idCounter, uri, line, character });
+    const res = await this.rpc({
+      type: "completion",
+      id: ++this.idCounter,
+      uri,
+      line,
+      character,
+    });
     if (res.type === "error") throw new Error(res.message);
     if (res.type === "completionResult") return res.result;
     return null;
@@ -106,7 +146,13 @@ export class TypstAnalyzer {
 
   async hover(uri: string, line: number, character: number): Promise<unknown> {
     await this.ready;
-    const res = await this.rpc({ type: "hover", id: ++this.idCounter, uri, line, character });
+    const res = await this.rpc({
+      type: "hover",
+      id: ++this.idCounter,
+      uri,
+      line,
+      character,
+    });
     if (res.type === "error") throw new Error(res.message);
     if (res.type === "hoverResult") return res.result;
     return null;
@@ -114,6 +160,11 @@ export class TypstAnalyzer {
 
   destroy(): void {
     this.diagnosticsListeners.clear();
-    destroyWorker(this.worker, { type: "destroy" as const, id: ++this.idCounter }, TIMEOUT.DESTROY, "TypstAnalyzer");
+    destroyWorker(
+      this.worker,
+      { type: "destroy" as const, id: ++this.idCounter },
+      TIMEOUT.DESTROY,
+      "TypstAnalyzer",
+    );
   }
 }

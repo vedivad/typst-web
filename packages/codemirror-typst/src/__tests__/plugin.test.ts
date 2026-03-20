@@ -1,6 +1,6 @@
 import { EditorState } from "@codemirror/state";
-import { describe, expect, it, vi } from "vitest";
 import type { DiagnosticMessage } from "@vedivad/typst-web-service";
+import { describe, expect, it, vi } from "vitest";
 import { TypstPlugin } from "../plugin.js";
 
 function mockView(doc: string) {
@@ -89,7 +89,23 @@ describe("TypstPlugin", () => {
           new Promise((resolve) => {
             // simulate slow compile
             setTimeout(
-              () => resolve({ diagnostics: [{ path: "/main.typ", severity: "Error", range: { startLine: 0, startCol: 0, endLine: 0, endCol: 1 }, message: "late", package: "" }] }),
+              () =>
+                resolve({
+                  diagnostics: [
+                    {
+                      path: "/main.typ",
+                      severity: "Error",
+                      range: {
+                        startLine: 0,
+                        startCol: 0,
+                        endLine: 0,
+                        endCol: 1,
+                      },
+                      message: "late",
+                      package: "",
+                    },
+                  ],
+                }),
               10,
             );
           }),

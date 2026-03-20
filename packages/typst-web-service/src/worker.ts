@@ -107,46 +107,40 @@ function postCancelled(req: { id: number }): void {
   } satisfies WorkerResponse);
 }
 
-const enqueueCompile = makeQueue<CompileRequest>(
-  async (req) => {
-    try {
-      const { diagnostics, vector: vectorData } = await compile(req.files);
-      const vector = vectorData ? transferBuffer(vectorData) : undefined;
-      const msg: WorkerResponse = {
-        type: "result",
-        id: req.id,
-        diagnostics,
-        vector,
-      };
-      self.postMessage(msg, vector ? [vector] : []);
-    } catch (err) {
-      postError(req.id, err);
-    }
-  },
-  postCancelled,
-);
+const enqueueCompile = makeQueue<CompileRequest>(async (req) => {
+  try {
+    const { diagnostics, vector: vectorData } = await compile(req.files);
+    const vector = vectorData ? transferBuffer(vectorData) : undefined;
+    const msg: WorkerResponse = {
+      type: "result",
+      id: req.id,
+      diagnostics,
+      vector,
+    };
+    self.postMessage(msg, vector ? [vector] : []);
+  } catch (err) {
+    postError(req.id, err);
+  }
+}, postCancelled);
 
-const enqueueRender = makeQueue<RenderRequest>(
-  async (req) => {
-    try {
-      addSources(req.files);
-      const result = await compiler!.compile({
-        mainFilePath: MAIN_FILE,
-        format: CompileFormatEnum.pdf,
-        diagnostics: "none",
-      });
-      if (!result.result) throw new Error("Compilation produced no output");
-      const data = transferBuffer(result.result);
-      self.postMessage(
-        { type: "pdf", id: req.id, data } satisfies WorkerResponse,
-        [data],
-      );
-    } catch (err) {
-      postError(req.id, err);
-    }
-  },
-  postCancelled,
-);
+const enqueueRender = makeQueue<RenderRequest>(async (req) => {
+  try {
+    addSources(req.files);
+    const result = await compiler!.compile({
+      mainFilePath: MAIN_FILE,
+      format: CompileFormatEnum.pdf,
+      diagnostics: "none",
+    });
+    if (!result.result) throw new Error("Compilation produced no output");
+    const data = transferBuffer(result.result);
+    self.postMessage(
+      { type: "pdf", id: req.id, data } satisfies WorkerResponse,
+      [data],
+    );
+  } catch (err) {
+    postError(req.id, err);
+  }
+}, postCancelled);
 
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;

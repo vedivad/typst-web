@@ -1,7 +1,10 @@
 import type { TypstAnalyzer } from "./analyzer.js";
 
 export interface AnalyzerSessionOptions {
-  analyzer: Pick<TypstAnalyzer, "ready" | "didOpen" | "didChange" | "completion" | "hover">;
+  analyzer: Pick<
+    TypstAnalyzer,
+    "ready" | "didOpen" | "didChange" | "completion" | "hover"
+  >;
   /** Project root used to build stable in-memory analyzer URIs. Default: "/project". */
   rootPath?: string;
   /** Entry file path within the project. Synced last to ensure dependencies load first. Default: "/main.typ". */
@@ -29,7 +32,10 @@ function normalizeRoot(rootPath: string): string {
 export class AnalyzerSession {
   readonly ready: Promise<void>;
 
-  private readonly analyzer: Pick<TypstAnalyzer, "ready" | "didOpen" | "didChange" | "completion" | "hover">;
+  private readonly analyzer: Pick<
+    TypstAnalyzer,
+    "ready" | "didOpen" | "didChange" | "completion" | "hover"
+  >;
   private readonly rootPath: string;
   private readonly entryPath: string;
   private readonly syncedFiles = new Map<string, string>();
@@ -63,7 +69,10 @@ export class AnalyzerSession {
       await this.ready;
       await this.syncFiles(mergedFiles, normalizedPath);
       // Notify the active file last — tinymist will publish diagnostics for it.
-      await this.analyzer.didChange(this.toUri(normalizedPath), mergedFiles[normalizedPath]);
+      await this.analyzer.didChange(
+        this.toUri(normalizedPath),
+        mergedFiles[normalizedPath],
+      );
       this.syncedFiles.set(normalizedPath, mergedFiles[normalizedPath]);
     });
   }
@@ -78,7 +87,10 @@ export class AnalyzerSession {
       });
   }
 
-  private async syncFiles(files: Record<string, string>, activePath: string): Promise<void> {
+  private async syncFiles(
+    files: Record<string, string>,
+    activePath: string,
+  ): Promise<void> {
     for (const path of this.orderedPaths(files)) {
       if (path === activePath) continue;
 
@@ -98,7 +110,7 @@ export class AnalyzerSession {
     }
 
     for (const path of Array.from(this.syncedFiles.keys())) {
-      if (!Object.prototype.hasOwnProperty.call(files, path)) {
+      if (!Object.hasOwn(files, path)) {
         this.syncedFiles.delete(path);
       }
     }
@@ -121,9 +133,16 @@ export class AnalyzerSession {
     return this.enqueue(async () => {
       await this.ready;
       await this.syncFiles(mergedFiles, normalizedPath);
-      await this.analyzer.didChange(this.toUri(normalizedPath), mergedFiles[normalizedPath]);
+      await this.analyzer.didChange(
+        this.toUri(normalizedPath),
+        mergedFiles[normalizedPath],
+      );
       this.syncedFiles.set(normalizedPath, mergedFiles[normalizedPath]);
-      return this.analyzer.completion(this.toUri(normalizedPath), line, character);
+      return this.analyzer.completion(
+        this.toUri(normalizedPath),
+        line,
+        character,
+      );
     });
   }
 
@@ -144,7 +163,10 @@ export class AnalyzerSession {
     return this.enqueue(async () => {
       await this.ready;
       await this.syncFiles(mergedFiles, normalizedPath);
-      await this.analyzer.didChange(this.toUri(normalizedPath), mergedFiles[normalizedPath]);
+      await this.analyzer.didChange(
+        this.toUri(normalizedPath),
+        mergedFiles[normalizedPath],
+      );
       this.syncedFiles.set(normalizedPath, mergedFiles[normalizedPath]);
       return this.analyzer.hover(this.toUri(normalizedPath), line, character);
     });
@@ -152,7 +174,10 @@ export class AnalyzerSession {
 
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
     const run = this.queue.then(task, task);
-    this.queue = run.then(() => undefined, () => undefined);
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
     return run;
   }
 }

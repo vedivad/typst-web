@@ -1,6 +1,9 @@
 import type { Diagnostic } from "@codemirror/lint";
 import type { EditorState } from "@codemirror/state";
-import type { DiagnosticMessage, LspDiagnostic } from "@vedivad/typst-web-service";
+import type {
+  DiagnosticMessage,
+  LspDiagnostic,
+} from "@vedivad/typst-web-service";
 
 export function toCMDiagnostic(
   state: EditorState,

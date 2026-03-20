@@ -1,6 +1,5 @@
-import type { EditorState } from "@codemirror/state";
-import { type Tooltip, hoverTooltip } from "@codemirror/view";
-import type { Extension } from "@codemirror/state";
+import type { EditorState, Extension } from "@codemirror/state";
+import { hoverTooltip, type Tooltip } from "@codemirror/view";
 import type { AnalyzerSession } from "@vedivad/typst-web-service";
 
 export interface TypstHoverOptions {
@@ -38,7 +37,10 @@ function extractHoverText(contents: LspHoverResult["contents"]): string {
  * Simple markdown-to-HTML converter for hover tooltips.
  * Handles: code blocks, inline code, headers, bold, italic, horizontal rules, paragraphs.
  */
-function renderMarkdown(md: string, highlightCode?: (code: string, language: string) => string): string {
+function renderMarkdown(
+  md: string,
+  highlightCode?: (code: string, language: string) => string,
+): string {
   const lines = md.split("\n");
   const htmlParts: string[] = [];
   let i = 0;
@@ -60,7 +62,9 @@ function renderMarkdown(md: string, highlightCode?: (code: string, language: str
       if (highlightCode && lang) {
         htmlParts.push(highlightCode(code, lang));
       } else {
-        htmlParts.push(`<pre><code${lang ? ` class="language-${lang}"` : ""}>${escapeHtml(code)}</code></pre>`);
+        htmlParts.push(
+          `<pre><code${lang ? ` class="language-${lang}"` : ""}>${escapeHtml(code)}</code></pre>`,
+        );
       }
       continue;
     }
@@ -76,7 +80,9 @@ function renderMarkdown(md: string, highlightCode?: (code: string, language: str
     const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
     if (headerMatch) {
       const level = headerMatch[1].length;
-      htmlParts.push(`<h${level}>${inlineMarkdown(headerMatch[2])}</h${level}>`);
+      htmlParts.push(
+        `<h${level}>${inlineMarkdown(headerMatch[2])}</h${level}>`,
+      );
       i++;
       continue;
     }
@@ -89,7 +95,13 @@ function renderMarkdown(md: string, highlightCode?: (code: string, language: str
 
     // Paragraph — collect consecutive non-empty, non-special lines
     const paraLines: string[] = [];
-    while (i < lines.length && lines[i].trim() !== "" && !lines[i].startsWith("```") && !lines[i].startsWith("#") && !/^---+\s*$/.test(lines[i])) {
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !lines[i].startsWith("```") &&
+      !lines[i].startsWith("#") &&
+      !/^---+\s*$/.test(lines[i])
+    ) {
       paraLines.push(lines[i]);
       i++;
     }

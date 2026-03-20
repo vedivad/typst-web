@@ -102,7 +102,7 @@ export async function createTypstExtensions(
 
   const delay = options.compiler.delay ?? 0;
 
-  const workerPlugin = ViewPlugin.define(
+  const typstPlugin = ViewPlugin.define(
     () =>
       new TypstPlugin({
         compiler: options.compiler.instance,
@@ -119,14 +119,19 @@ export async function createTypstExtensions(
 
   const linterExtension = linter(
     async (view) => {
-      const plugin = view.plugin(workerPlugin);
+      const plugin = view.plugin(typstPlugin);
       if (!plugin) return [];
       return plugin.lint(view);
     },
     { delay },
   );
 
-  const extensions: Extension[] = [shiki.extension, workerPlugin, linterExtension, lintGutter()];
+  const extensions: Extension[] = [
+    shiki.extension,
+    typstPlugin,
+    linterExtension,
+    lintGutter(),
+  ];
 
   if (options.formatter) {
     extensions.push(createTypstFormatter(options.formatter));
@@ -141,13 +146,18 @@ export async function createTypstExtensions(
 
     extensions.push(
       autocompletion({
-        override: [
-          typstCompletionSource({ session, filePath, getFiles }),
-        ],
+        override: [typstCompletionSource({ session, filePath, getFiles })],
       }),
     );
 
-    extensions.push(createTypstHover({ session, filePath, getFiles, highlightCode: shiki.highlightCode }));
+    extensions.push(
+      createTypstHover({
+        session,
+        filePath,
+        getFiles,
+        highlightCode: shiki.highlightCode,
+      }),
+    );
   }
 
   return extensions;

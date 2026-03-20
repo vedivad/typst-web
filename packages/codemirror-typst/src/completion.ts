@@ -15,31 +15,31 @@ export interface TypstCompletionOptions {
 
 /** LSP CompletionItemKind → CM6 completion type */
 const LSP_KIND_TO_TYPE: Record<number, string> = {
-  1: "text",       // Text
-  2: "method",     // Method
-  3: "function",   // Function
-  4: "method",     // Constructor
-  5: "property",   // Field
-  6: "variable",   // Variable
-  7: "class",      // Class
-  8: "interface",  // Interface
-  9: "namespace",  // Module
-  10: "property",  // Property
-  11: "constant",  // Unit
-  12: "constant",  // Value
-  13: "enum",      // Enum
-  14: "keyword",   // Keyword
-  15: "keyword",   // Snippet
-  16: "constant",  // Color
-  17: "text",      // File
-  18: "text",      // Reference
-  19: "text",      // Folder
-  20: "enum",      // EnumMember
-  21: "constant",  // Constant
-  22: "class",     // Struct
-  23: "keyword",   // Event
-  24: "keyword",   // Operator
-  25: "type",      // TypeParameter
+  1: "text", // Text
+  2: "method", // Method
+  3: "function", // Function
+  4: "method", // Constructor
+  5: "property", // Field
+  6: "variable", // Variable
+  7: "class", // Class
+  8: "interface", // Interface
+  9: "namespace", // Module
+  10: "property", // Property
+  11: "constant", // Unit
+  12: "constant", // Value
+  13: "enum", // Enum
+  14: "keyword", // Keyword
+  15: "keyword", // Snippet
+  16: "constant", // Color
+  17: "text", // File
+  18: "text", // Reference
+  19: "text", // Folder
+  20: "enum", // EnumMember
+  21: "constant", // Constant
+  22: "class", // Struct
+  23: "keyword", // Event
+  24: "keyword", // Operator
+  25: "type", // TypeParameter
 };
 
 interface LspCompletionItem {
@@ -64,7 +64,9 @@ interface LspCompletionList {
   items: LspCompletionItem[];
 }
 
-function getDocString(doc: string | { kind: string; value: string } | undefined): string | undefined {
+function getDocString(
+  doc: string | { kind: string; value: string } | undefined,
+): string | undefined {
   if (!doc) return undefined;
   if (typeof doc === "string") return doc;
   return doc.value;

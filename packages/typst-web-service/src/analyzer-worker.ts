@@ -1,5 +1,10 @@
 import init, { TinymistLanguageServer } from "tinymist-web";
-import type { AnalyzerDiagnosticEvent, AnalyzerRequest, AnalyzerResponse, LspDiagnostic } from "./analyzer-types.js";
+import type {
+  AnalyzerDiagnosticEvent,
+  AnalyzerRequest,
+  AnalyzerResponse,
+  LspDiagnostic,
+} from "./analyzer-types.js";
 import { postError } from "./worker-utils.js";
 
 let server: TinymistLanguageServer | null = null;
@@ -8,7 +13,9 @@ let server: TinymistLanguageServer | null = null;
 const events: any[] = [];
 
 function normalizeUri(uri: string): string {
-  return uri.startsWith("untitled:/") ? `untitled:${uri.slice("untitled:/".length)}` : uri;
+  return uri.startsWith("untitled:/")
+    ? `untitled:${uri.slice("untitled:/".length)}`
+    : uri;
 }
 
 function flushEvents(): void {
@@ -28,9 +35,18 @@ async function initServer(wasmUrl: string): Promise<void> {
     sendRequest({ id }: { id: number; method: string; params: unknown }): void {
       server!.on_response({ id, result: null });
     },
-    sendNotification: ({ method, params }: { method: string; params: unknown }): void => {
+    sendNotification: ({
+      method,
+      params,
+    }: {
+      method: string;
+      params: unknown;
+    }): void => {
       if (method === "textDocument/publishDiagnostics") {
-        const { uri, diagnostics } = params as { uri: string; diagnostics: LspDiagnostic[] };
+        const { uri, diagnostics } = params as {
+          uri: string;
+          diagnostics: LspDiagnostic[];
+        };
         // Push diagnostics to main thread as an unsolicited notification (no id).
         self.postMessage({
           type: "diagnostics",
@@ -68,7 +84,10 @@ self.onmessage = async (e: MessageEvent<AnalyzerRequest>) => {
   if (req.type === "init") {
     try {
       await initServer(req.wasmUrl);
-      self.postMessage({ type: "ready", id: req.id } satisfies AnalyzerResponse);
+      self.postMessage({
+        type: "ready",
+        id: req.id,
+      } satisfies AnalyzerResponse);
     } catch (err) {
       postError(req.id, err);
     }
@@ -119,9 +138,10 @@ self.onmessage = async (e: MessageEvent<AnalyzerRequest>) => {
         textDocument: { uri: req.uri },
         position: { line: req.line, character: req.character },
       });
-      const resolved = result && typeof result === "object" && "then" in result
-        ? await result
-        : result;
+      const resolved =
+        result && typeof result === "object" && "then" in result
+          ? await result
+          : result;
       flushEvents();
       self.postMessage({
         type: "completionResult",
@@ -140,9 +160,10 @@ self.onmessage = async (e: MessageEvent<AnalyzerRequest>) => {
         textDocument: { uri: req.uri },
         position: { line: req.line, character: req.character },
       });
-      const resolved = result && typeof result === "object" && "then" in result
-        ? await result
-        : result;
+      const resolved =
+        result && typeof result === "object" && "then" in result
+          ? await result
+          : result;
       flushEvents();
       self.postMessage({
         type: "hoverResult",
@@ -158,6 +179,9 @@ self.onmessage = async (e: MessageEvent<AnalyzerRequest>) => {
   if (req.type === "destroy") {
     server.free();
     server = null;
-    self.postMessage({ type: "destroyed", id: req.id } satisfies AnalyzerResponse);
+    self.postMessage({
+      type: "destroyed",
+      id: req.id,
+    } satisfies AnalyzerResponse);
   }
 };
