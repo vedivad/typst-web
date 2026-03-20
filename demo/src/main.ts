@@ -10,28 +10,7 @@ import {
 import { basicSetup, EditorView } from "codemirror";
 import tinymistWasmUrl from "tinymist-web/pkg/tinymist_bg.wasm?url";
 import { updateDiagnostics } from "./diagnostics";
-
-// --- File contents ---
-
-const files: Record<string, string> = {
-  "/main.typ": `\
-#import "template.typ": greet
-
-#greet("World")
-
-= Introduction
-
-This demo shows *multi-file* compilation.
-Each file is editable — switch tabs to see both.
-`,
-  "/template.typ": `\
-#let greet(name) = {
-  align(center, text(24pt, weight: "bold")[
-    Hello, #name!
-  ])
-}
-`,
-};
+import { files } from "./files";
 
 // --- Typst setup ---
 
