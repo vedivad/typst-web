@@ -159,7 +159,9 @@ export class PushDiagnosticsPlugin {
     }
 
     private async runSync(view: EditorView): Promise<void> {
-        this.controller?.abort();
+        if (this.controller) {
+            this.controller.abort();
+        }
         this.controller = new AbortController();
         const { signal } = this.controller;
 
@@ -174,6 +176,7 @@ export class PushDiagnosticsPlugin {
                 if (signal.aborted) return;
                 this.options.onCompile?.(result);
             },
+            signal,
         );
     }
 

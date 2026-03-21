@@ -34,6 +34,7 @@ export class AnalyzerSession {
   private readonly entryPath: string;
   private readonly syncedFiles = new Map<string, string>();
   private queue: Promise<void> = Promise.resolve();
+  private syncRevision = 0;
 
   constructor(options: AnalyzerSessionOptions) {
     this.analyzer = options.analyzer;
@@ -58,6 +59,7 @@ export class AnalyzerSession {
     content: string,
     files: Record<string, string>,
   ): Promise<void> {
+    const revision = ++this.syncRevision;
     const normalizedPath = normalizePath(path);
     const mergedFiles = { ...files, [normalizedPath]: content };
 
@@ -86,6 +88,12 @@ export class AnalyzerSession {
     content: string,
     forceDidChange: boolean,
   ): Promise<void> {
+    if (forceDidChange) {
+      await this.analyzer.didOpen(this.toUri(path), content);
+      this.syncedFiles.set(path, content);
+      return;
+    }
+
     const prev = this.syncedFiles.get(path);
 
     if (prev == null) {
@@ -150,10 +158,13 @@ export class AnalyzerSession {
     line: number,
     character: number,
   ): Promise<unknown> {
+    const enqueuedRevision = this.syncRevision;
     const normalizedPath = normalizePath(path);
     const mergedFiles = { ...files, [normalizedPath]: content };
 
     return this.enqueue(async () => {
+      if (enqueuedRevision !== this.syncRevision) return null;
+
       await this.syncForRequest(normalizedPath, mergedFiles, false);
       return this.analyzer.completion(
         this.toUri(normalizedPath),
@@ -174,10 +185,13 @@ export class AnalyzerSession {
     line: number,
     character: number,
   ): Promise<unknown> {
+    const enqueuedRevision = this.syncRevision;
     const normalizedPath = normalizePath(path);
     const mergedFiles = { ...files, [normalizedPath]: content };
 
     return this.enqueue(async () => {
+      if (enqueuedRevision !== this.syncRevision) return null;
+
       await this.syncForRequest(normalizedPath, mergedFiles, false);
       return this.analyzer.hover(this.toUri(normalizedPath), line, character);
     });

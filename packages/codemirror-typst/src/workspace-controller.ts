@@ -92,12 +92,15 @@ export class TypstWorkspaceController {
         content: string,
         files: Record<string, string>,
         onCompile?: (result: CompileResult) => void,
+        signal?: AbortSignal,
     ): Promise<void> {
         await this.session.sync(path, content, files);
+        if (signal?.aborted) return;
 
         const token = ++this.compileToken;
         try {
             const result = await this.compiler.compile(files);
+            if (signal?.aborted) return;
             if (token !== this.compileToken) return;
             onCompile?.(result);
         } catch {
