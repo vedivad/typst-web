@@ -50,7 +50,9 @@ export class AnalyzerSession {
 
   /** Build a tinymist URI from a project-relative path. */
   toUri(path: string): string {
-    return `untitled:${this.rootPath}${normalizePath(path)}`;
+    // Tinymist publishes untitled URIs without a leading slash after the scheme.
+    const root = this.rootPath.replace(/^\//, "");
+    return `untitled:${root}${normalizePath(path)}`;
   }
 
   /**
