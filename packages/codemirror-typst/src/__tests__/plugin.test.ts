@@ -127,12 +127,13 @@ describe("CompilerLintPlugin", () => {
 
 describe("PushDiagnosticsPlugin", () => {
   it("returns empty diagnostics from lint", async () => {
-    const workspaceController = {
+    const session = {
       subscribe: vi.fn().mockReturnValue(() => { }),
       syncAndCompile: vi.fn().mockResolvedValue(undefined),
     } as any;
+    const compiler = mockCompiler();
 
-    const plugin = new PushDiagnosticsPlugin({ workspaceController });
+    const plugin = new PushDiagnosticsPlugin({ session, compiler });
     const result = await plugin.lint(mockView("x"));
 
     expect(result).toEqual([]);

@@ -1,8 +1,7 @@
 import { type Diagnostic, setDiagnostics } from "@codemirror/lint";
 import type { EditorView, ViewUpdate } from "@codemirror/view";
-import type { CompileResult, LspDiagnostic, TypstCompiler } from "@vedivad/typst-web-service";
+import type { AnalyzerSession, CompileResult, LspDiagnostic, TypstCompiler } from "@vedivad/typst-web-service";
 import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
-import type { TypstWorkspaceController } from "./workspace-controller.js";
 
 interface BasePluginOptions {
     /** File path this editor represents. Default: "/main.typ" */
@@ -69,7 +68,8 @@ export class CompilerLintPlugin {
 }
 
 export interface PushDiagnosticsPluginOptions extends BasePluginOptions {
-    workspaceController: TypstWorkspaceController;
+    session: AnalyzerSession;
+    compiler: TypstCompiler;
     /** Delay in ms before analyzer-mode sync/compile runs after doc changes. Default: 0. */
     compileDelay?: number;
 }
@@ -105,7 +105,7 @@ export class PushDiagnosticsPlugin {
     private bindPushDiagnostics(view: EditorView): void {
         if (this.unsubscribeDiagnostics) return;
 
-        this.unsubscribeDiagnostics = this.options.workspaceController.subscribe(
+        this.unsubscribeDiagnostics = this.options.session.subscribe(
             this.path,
             (lspDiags: LspDiagnostic[]) => {
                 const cmDiags = lspDiags.map((d) => lspToCMDiagnostic(view.state, d));
@@ -168,10 +168,11 @@ export class PushDiagnosticsPlugin {
         const source = view.state.doc.toString();
         const files = { ...this.options.getFiles?.(), [this.path]: source };
 
-        await this.options.workspaceController.syncAndCompile(
+        await this.options.session.syncAndCompile(
             this.path,
             source,
             files,
+            this.options.compiler,
             (result) => {
                 if (signal.aborted) return;
                 this.options.onCompile?.(result);

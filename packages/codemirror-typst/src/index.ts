@@ -19,7 +19,6 @@ import {
   createTypstShikiExtension,
   createTypstShikiHighlighting,
 } from "./shiki.js";
-import { WorkspaceRegistry } from "./workspace-registry.js";
 
 export type {
   CompileResult,
@@ -45,8 +44,6 @@ export {
   createTypstShikiHighlighting,
   toCMDiagnostic,
 };
-
-const workspaceRegistry = new WorkspaceRegistry();
 
 // ---------------------------------------------------------------------------
 // High-level API: createTypstExtensions
@@ -107,18 +104,18 @@ export async function createTypstExtensions(
   const extensions: Extension[] = [shiki.extension, lintGutter()];
 
   if (options.analyzer) {
-    const workspaceController = workspaceRegistry.getController({
+    const session = new AnalyzerSession({
       analyzer: options.analyzer.instance,
-      compiler: options.compiler.instance,
-      projectRootPath: options.analyzer.projectRootPath,
-      projectEntryPath: options.analyzer.projectEntryPath,
+      rootPath: options.analyzer.projectRootPath,
+      entryPath: options.analyzer.projectEntryPath,
     });
 
     const pushPlugin = ViewPlugin.define(
       (view) =>
         new PushDiagnosticsPlugin(
           {
-            workspaceController,
+            session,
+            compiler: options.compiler.instance,
             compileDelay: delay,
             filePath,
             getFiles,
@@ -134,8 +131,6 @@ export async function createTypstExtensions(
 
     // Use lint infrastructure for rendering while diagnostics are push-based.
     extensions.push(linter(null, { delay }));
-
-    const session = workspaceController.analyzerSession;
 
     extensions.push(
       autocompletion({
