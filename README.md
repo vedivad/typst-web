@@ -15,7 +15,7 @@
 ### `codemirror-typst`
 
 - **Syntax highlighting** — Shiki-based highlighting with configurable themes
-- **Inline diagnostics** — maps Typst/LSP diagnostics to CodeMirror lint markers with gutter icons
+- **Inline diagnostics** — single diagnostics owner per mode: compiler linter (no analyzer) or tinymist push (analyzer mode)
 - **Format keybinding** — Shift+Alt+F to format the document or current selection
 - **Format on save** — optional Ctrl+S / Cmd+S formatting with a save callback hook
 
@@ -125,9 +125,9 @@ analyzer.onDiagnostics((uri, diagnostics) => {
   console.log(uri, diagnostics);
 });
 
-await analyzer.didChange("untitled:/project/main.typ", source);
-const completions = await analyzer.completion("untitled:/project/main.typ", line, character);
-const hover = await analyzer.hover("untitled:/project/main.typ", line, character);
+await analyzer.didChange("untitled:project/main.typ", source);
+const completions = await analyzer.completion("untitled:project/main.typ", line, character);
+const hover = await analyzer.hover("untitled:project/main.typ", line, character);
 
 analyzer.destroy();
 ```
@@ -218,7 +218,10 @@ const typstExtensions = await createTypstExtensions({
 });
 ```
 
-Compiler diagnostics are always returned from the linter. When `analyzer` is provided, tinymist analyzes in the background and its push-based diagnostics replace the compiler ones once they arrive.
+Diagnostics source is mode-dependent:
+
+- Without `analyzer`: CodeMirror linter pulls diagnostics from `TypstCompiler`.
+- With `analyzer`: diagnostics are push-only from tinymist (`TypstAnalyzer`). The linter extension is used only for rendering markers, not as a diagnostics source.
 
 #### Format on save
 
@@ -279,7 +282,9 @@ The demo at `demo/` includes a tabbed multi-file editor, live SVG preview, tinym
 graph TD
   subgraph "codemirror-typst"
     Shiki[Shiki highlighting]
-    Linter[Linter extension]
+    Linter[Linter rendering]
+    Pull[CompilerLintPlugin]
+    Push[PushDiagnosticsPlugin]
     FmtExt[Formatter keybinding]
   end
 
@@ -291,8 +296,9 @@ graph TD
     Session["AnalyzerSession"]
   end
 
-  Linter --> Compiler
-  Linter --> Session
+  Pull --> Compiler
+  Push --> Session
+  Push --> Linter
   Session --> Analyzer
   FmtExt --> Formatter
 
@@ -304,10 +310,10 @@ graph TD
 
 - **`TypstCompiler`** manages a Web Worker running the Typst WASM compiler. It handles compilation, PDF rendering, and request coalescing. Accepts both single-file strings and multi-file `Record<string, string>` maps.
 - **`TypstAnalyzer`** runs a tinymist language server in a Web Worker for LSP-based diagnostics, completion, and hover. Optional — the system works without it.
-- **`AnalyzerSession`** synchronizes multi-file project state with the analyzer, handling file ordering (dependencies before entry file) and avoiding cross-file race conditions.
+- **`AnalyzerSession`** synchronizes multi-file project state with the analyzer, handling file ordering (dependencies before entry file), avoiding cross-file race conditions, and forcing active-file refresh on sync to keep cross-file diagnostics current during fast tab switches.
 - **`TypstRenderer`** converts compile vector artifacts to SVG strings. Runs on the main thread with lazy WASM loading.
 - **`TypstFormatter`** is a standalone formatter powered by typstyle WASM. Runs on the main thread and is independent of all other classes.
-- **`codemirror-typst`** provides CodeMirror 6 extensions that consume the service classes. When both compiler and analyzer are provided, compiler diagnostics appear instantly while tinymist diagnostics arrive in the background.
+- **`codemirror-typst`** provides CodeMirror 6 extensions that consume the service classes. It uses a single diagnostics owner per mode: compiler pull in non-analyzer mode, tinymist push in analyzer mode.
 - Each class is independent — consumers only import what they need.
 
 ## License
