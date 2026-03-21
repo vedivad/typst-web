@@ -16,11 +16,6 @@ export interface TypstWorkspaceControllerOptions {
     session?: AnalyzerSession;
 }
 
-function normalizeUntitledUri(uri: string): string {
-    if (!uri.startsWith("untitled:")) return uri;
-    return `untitled:${uri.slice("untitled:".length).replace(/^\/+/, "")}`;
-}
-
 function diagnosticsHash(diagnostics: LspDiagnostic[]): string {
     return JSON.stringify(
         diagnostics.map((d) => [
@@ -54,7 +49,7 @@ export class TypstWorkspaceController {
             });
 
         options.analyzer.onDiagnostics((uri, diagnostics) => {
-            const normalizedUri = normalizeUntitledUri(uri);
+            const normalizedUri = uri;
             const nextHash = diagnosticsHash(diagnostics);
             if (this.diagnosticsHashByUri.get(normalizedUri) === nextHash) return;
 
@@ -72,7 +67,7 @@ export class TypstWorkspaceController {
     }
 
     subscribe(path: string, listener: DiagnosticsSubscriber): () => void {
-        const uri = normalizeUntitledUri(this.session.toUri(path));
+        const uri = this.session.toUri(path);
 
         let listeners = this.listenersByUri.get(uri);
         if (!listeners) {

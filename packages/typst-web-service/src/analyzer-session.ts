@@ -68,11 +68,23 @@ export class AnalyzerSession {
     const mergedFiles = { ...files, [normalizedPath]: content };
 
     await this.enqueue(async () => {
-      await this.ready;
-      await this.syncFiles(mergedFiles, normalizedPath);
       // Notify the active file last — tinymist will publish diagnostics for it.
-      await this.syncActive(normalizedPath, mergedFiles[normalizedPath], true);
+      await this.syncForRequest(normalizedPath, mergedFiles, true);
     });
+  }
+
+  private async syncForRequest(
+    normalizedPath: string,
+    mergedFiles: Record<string, string>,
+    forceDidChange: boolean,
+  ): Promise<void> {
+    await this.ready;
+    await this.syncFiles(mergedFiles, normalizedPath);
+    await this.syncActive(
+      normalizedPath,
+      mergedFiles[normalizedPath],
+      forceDidChange,
+    );
   }
 
   private async syncActive(
@@ -148,9 +160,7 @@ export class AnalyzerSession {
     const mergedFiles = { ...files, [normalizedPath]: content };
 
     return this.enqueue(async () => {
-      await this.ready;
-      await this.syncFiles(mergedFiles, normalizedPath);
-      await this.syncActive(normalizedPath, mergedFiles[normalizedPath], false);
+      await this.syncForRequest(normalizedPath, mergedFiles, false);
       return this.analyzer.completion(
         this.toUri(normalizedPath),
         line,
@@ -174,9 +184,7 @@ export class AnalyzerSession {
     const mergedFiles = { ...files, [normalizedPath]: content };
 
     return this.enqueue(async () => {
-      await this.ready;
-      await this.syncFiles(mergedFiles, normalizedPath);
-      await this.syncActive(normalizedPath, mergedFiles[normalizedPath], false);
+      await this.syncForRequest(normalizedPath, mergedFiles, false);
       return this.analyzer.hover(this.toUri(normalizedPath), line, character);
     });
   }

@@ -6,6 +6,7 @@ import type {
   LspDiagnostic,
 } from "./analyzer-types.js";
 import { createAnalyzerWorker, destroyWorker, workerRpc } from "./rpc.js";
+import { normalizeUntitledUri } from "./uri.js";
 
 export type { LspDiagnostic };
 
@@ -29,11 +30,6 @@ export interface TypstAnalyzerOptions {
 }
 
 const TIMEOUT = { INIT: 120_000, REQUEST: 30_000, DESTROY: 5_000 } as const;
-
-function normalizeUntitledUri(uri: string): string {
-  if (!uri.startsWith("untitled:")) return uri;
-  return `untitled:${uri.slice("untitled:".length).replace(/^\/+/, "")}`;
-}
 
 /**
  * Manages a tinymist language server in a Web Worker. Provides LSP-based
