@@ -1,6 +1,6 @@
 {
   "name": "@vedivad/typst-web-service",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Editor-agnostic Typst compilation service running in a Web Worker",
   "type": "module",
   "main": "./dist/index.js",
@@ -25,9 +25,9 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
-    "@myriaddreamin/typst.ts": "^0.7.0-rc2",
     "@myriaddreamin/typst-ts-renderer": "^0.7.0-rc2",
     "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
+    "@myriaddreamin/typst.ts": "^0.7.0-rc2",
     "@typstyle/typstyle-wasm-bundler": "^0.14.4",
     "tinymist-web": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.14.10/tinymist-web.tar.gz"
   },
