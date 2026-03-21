@@ -79,7 +79,6 @@ export class PushDiagnosticsPlugin {
     private readonly path: string;
     private unsubscribeDiagnostics?: () => void;
     private syncTimer: ReturnType<typeof setTimeout> | null = null;
-    private lastDiagnosticsKey: string | null = null;
     private disposed = false;
 
     constructor(
@@ -109,12 +108,6 @@ export class PushDiagnosticsPlugin {
             this.path,
             (lspDiags: LspDiagnostic[]) => {
                 const cmDiags = lspDiags.map((d) => lspToCMDiagnostic(view.state, d));
-                const nextKey = JSON.stringify(
-                    cmDiags.map((d) => [d.from, d.to, d.severity, d.message, d.source]),
-                );
-                if (nextKey === this.lastDiagnosticsKey) return;
-
-                this.lastDiagnosticsKey = nextKey;
                 this.applyDiagnostics(view, cmDiags);
             },
         );
