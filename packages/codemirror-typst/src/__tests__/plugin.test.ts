@@ -1,7 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import type { DiagnosticMessage } from "@vedivad/typst-web-service";
 import { describe, expect, it, vi } from "vitest";
-import { TypstPlugin } from "../plugin.js";
+import { CompilerLintPlugin, PushDiagnosticsPlugin } from "../plugin.js";
 
 function mockView(doc: string) {
   const state = EditorState.create({ doc });
@@ -14,7 +14,7 @@ function mockCompiler(diagnostics: DiagnosticMessage[] = []) {
   } as any;
 }
 
-describe("TypstPlugin", () => {
+describe("CompilerLintPlugin", () => {
   it("returns diagnostics filtered by file path", async () => {
     const diags: DiagnosticMessage[] = [
       {
@@ -33,7 +33,7 @@ describe("TypstPlugin", () => {
       },
     ];
     const compiler = mockCompiler(diags);
-    const plugin = new TypstPlugin({ compiler });
+    const plugin = new CompilerLintPlugin({ compiler });
     const result = await plugin.lint(mockView("abc"));
     expect(result).toHaveLength(1);
     expect(result[0].message).toBe("bad");
@@ -43,7 +43,7 @@ describe("TypstPlugin", () => {
     const compiler = {
       compile: vi.fn().mockRejectedValue(new Error("boom")),
     } as any;
-    const plugin = new TypstPlugin({ compiler });
+    const plugin = new CompilerLintPlugin({ compiler });
     const result = await plugin.lint(mockView("x"));
     expect(result).toHaveLength(1);
     expect(result[0].severity).toBe("error");
@@ -53,7 +53,7 @@ describe("TypstPlugin", () => {
   it("calls onDiagnostics callback", async () => {
     const onDiagnostics = vi.fn();
     const compiler = mockCompiler([]);
-    const plugin = new TypstPlugin({ compiler, onDiagnostics });
+    const plugin = new CompilerLintPlugin({ compiler, onDiagnostics });
     await plugin.lint(mockView(""));
     expect(onDiagnostics).toHaveBeenCalledWith([]);
   });
@@ -61,7 +61,7 @@ describe("TypstPlugin", () => {
   it("passes merged files to compiler.compile", async () => {
     const compiler = mockCompiler();
     const getFiles = () => ({ "/lib.typ": "// lib" });
-    const plugin = new TypstPlugin({
+    const plugin = new CompilerLintPlugin({
       compiler,
       filePath: "/main.typ",
       getFiles,
@@ -75,7 +75,7 @@ describe("TypstPlugin", () => {
 
   it("uses /main.typ as default file path", async () => {
     const compiler = mockCompiler();
-    const plugin = new TypstPlugin({ compiler });
+    const plugin = new CompilerLintPlugin({ compiler });
     await plugin.lint(mockView("content"));
     expect(compiler.compile).toHaveBeenCalledWith({
       "/main.typ": "content",
@@ -111,7 +111,7 @@ describe("TypstPlugin", () => {
           }),
       ),
     } as any;
-    const plugin = new TypstPlugin({ compiler });
+    const plugin = new CompilerLintPlugin({ compiler });
     const view = mockView("x");
 
     // Start first lint, then immediately start second (aborts first)
@@ -123,25 +123,18 @@ describe("TypstPlugin", () => {
     expect(secondResult).toHaveLength(1);
   });
 
-  it("returns empty diagnostics in analyzer mode", async () => {
-    const compiler = mockCompiler([
-      {
-        package: "",
-        path: "/main.typ",
-        severity: "Error",
-        range: { startLine: 0, startCol: 0, endLine: 0, endCol: 1 },
-        message: "compiler diagnostic",
-      },
-    ]);
+});
+
+describe("PushDiagnosticsPlugin", () => {
+  it("returns empty diagnostics from lint", async () => {
     const workspaceController = {
       subscribe: vi.fn().mockReturnValue(() => { }),
       syncAndCompile: vi.fn().mockResolvedValue(undefined),
     } as any;
 
-    const plugin = new TypstPlugin({ compiler, workspaceController });
+    const plugin = new PushDiagnosticsPlugin({ workspaceController });
     const result = await plugin.lint(mockView("x"));
 
     expect(result).toEqual([]);
-    expect(compiler.compile).not.toHaveBeenCalled();
   });
 });

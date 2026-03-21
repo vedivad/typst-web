@@ -4,21 +4,77 @@ import type { CompileResult, LspDiagnostic, TypstCompiler } from "@vedivad/typst
 import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
 import type { TypstWorkspaceController } from "./workspace-controller.js";
 
-export interface TypstPluginOptions {
-    compiler: TypstCompiler;
-    workspaceController?: TypstWorkspaceController;
+interface BasePluginOptions {
     /** File path this editor represents. Default: "/main.typ" */
     filePath?: string;
     /** Return all project files. The current editor's content is included automatically under filePath. */
     getFiles?: () => Record<string, string>;
     /** Called after each successful compile with the full result. */
     onCompile?: (result: CompileResult) => void;
-    /** Delay in ms before analyzer-mode sync/compile runs after doc changes. Default: 0. */
-    compileDelay?: number;
     onDiagnostics?: (diagnostics: Diagnostic[]) => void;
 }
 
-export class TypstPlugin {
+export interface CompilerLintPluginOptions extends BasePluginOptions {
+    compiler: TypstCompiler;
+}
+
+export class CompilerLintPlugin {
+    private controller: AbortController | null = null;
+    private readonly path: string;
+
+    constructor(private readonly options: CompilerLintPluginOptions) {
+        this.path = options.filePath ?? "/main.typ";
+    }
+
+    async lint(view: EditorView): Promise<Diagnostic[]> {
+        this.controller?.abort();
+        this.controller = new AbortController();
+        const { signal } = this.controller;
+
+        const source = view.state.doc.toString();
+        const files = { ...this.options.getFiles?.(), [this.path]: source };
+
+        try {
+            const result = await this.options.compiler.compile(files);
+            if (signal.aborted) return [];
+
+            this.options.onCompile?.(result);
+            const diagnostics = result.diagnostics
+                .filter((d) => d.path === this.path)
+                .map((d) => toCMDiagnostic(view.state, d));
+
+            this.options.onDiagnostics?.(diagnostics);
+            return diagnostics;
+        } catch (err) {
+            if (signal.aborted) return [];
+
+            const diagnostics: Diagnostic[] = [
+                {
+                    from: 0,
+                    to: Math.min(1, view.state.doc.length),
+                    severity: "error",
+                    message: err instanceof Error ? err.message : String(err),
+                    source: "typst",
+                },
+            ];
+
+            this.options.onDiagnostics?.(diagnostics);
+            return diagnostics;
+        }
+    }
+
+    destroy(): void {
+        this.controller?.abort();
+    }
+}
+
+export interface PushDiagnosticsPluginOptions extends BasePluginOptions {
+    workspaceController: TypstWorkspaceController;
+    /** Delay in ms before analyzer-mode sync/compile runs after doc changes. Default: 0. */
+    compileDelay?: number;
+}
+
+export class PushDiagnosticsPlugin {
     private controller: AbortController | null = null;
     private readonly path: string;
     private unsubscribeDiagnostics?: () => void;
@@ -27,27 +83,29 @@ export class TypstPlugin {
     private disposed = false;
 
     constructor(
-        private readonly options: TypstPluginOptions,
+        private readonly options: PushDiagnosticsPluginOptions,
         view?: EditorView,
     ) {
         this.path = options.filePath ?? "/main.typ";
 
-        if (view && options.workspaceController) {
+        if (view) {
             this.bindPushDiagnostics(view);
             this.scheduleSync(view, true);
         }
     }
 
     update(update: ViewUpdate): void {
-        if (!this.options.workspaceController) return;
         if (update.docChanged) this.scheduleSync(update.view, false);
     }
 
-    private bindPushDiagnostics(view: EditorView): void {
-        const controller = this.options.workspaceController;
-        if (!controller || this.unsubscribeDiagnostics) return;
+    async lint(_view: EditorView): Promise<Diagnostic[]> {
+        return [];
+    }
 
-        this.unsubscribeDiagnostics = controller.subscribe(
+    private bindPushDiagnostics(view: EditorView): void {
+        if (this.unsubscribeDiagnostics) return;
+
+        this.unsubscribeDiagnostics = this.options.workspaceController.subscribe(
             this.path,
             (lspDiags: LspDiagnostic[]) => {
                 const cmDiags = lspDiags.map((d) => lspToCMDiagnostic(view.state, d));
@@ -88,8 +146,6 @@ export class TypstPlugin {
     }
 
     private scheduleSync(view: EditorView, immediate: boolean): void {
-        if (!this.options.workspaceController) return;
-
         if (this.syncTimer) {
             clearTimeout(this.syncTimer);
             this.syncTimer = null;
@@ -103,9 +159,6 @@ export class TypstPlugin {
     }
 
     private async runSync(view: EditorView): Promise<void> {
-        const controller = this.options.workspaceController;
-        if (!controller) return;
-
         this.controller?.abort();
         this.controller = new AbortController();
         const { signal } = this.controller;
@@ -113,50 +166,15 @@ export class TypstPlugin {
         const source = view.state.doc.toString();
         const files = { ...this.options.getFiles?.(), [this.path]: source };
 
-        await controller.syncAndCompile(this.path, source, files, (result) => {
-            if (signal.aborted) return;
-            this.options.onCompile?.(result);
-        });
-    }
-
-    async lint(view: EditorView): Promise<Diagnostic[]> {
-        // Analyzer mode uses push diagnostics only.
-        if (this.options.workspaceController) return [];
-
-        this.controller?.abort();
-        this.controller = new AbortController();
-        const { signal } = this.controller;
-
-        const source = view.state.doc.toString();
-        const files = { ...this.options.getFiles?.(), [this.path]: source };
-
-        try {
-            const result = await this.options.compiler.compile(files);
-            if (signal.aborted) return [];
-
-            this.options.onCompile?.(result);
-            const diagnostics = result.diagnostics
-                .filter((d) => d.path === this.path)
-                .map((d) => toCMDiagnostic(view.state, d));
-
-            this.options.onDiagnostics?.(diagnostics);
-            return diagnostics;
-        } catch (err) {
-            if (signal.aborted) return [];
-
-            const diagnostics: Diagnostic[] = [
-                {
-                    from: 0,
-                    to: Math.min(1, view.state.doc.length),
-                    severity: "error",
-                    message: err instanceof Error ? err.message : String(err),
-                    source: "typst",
-                },
-            ];
-
-            this.options.onDiagnostics?.(diagnostics);
-            return diagnostics;
-        }
+        await this.options.workspaceController.syncAndCompile(
+            this.path,
+            source,
+            files,
+            (result) => {
+                if (signal.aborted) return;
+                this.options.onCompile?.(result);
+            },
+        );
     }
 
     destroy(): void {

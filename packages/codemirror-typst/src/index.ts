@@ -13,7 +13,7 @@ import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
 import { createTypstHover } from "./hover.js";
-import { TypstPlugin } from "./plugin.js";
+import { CompilerLintPlugin, PushDiagnosticsPlugin } from "./plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
   createTypstShikiExtension,
@@ -104,56 +104,38 @@ export async function createTypstExtensions(
   const shiki = await createTypstShikiHighlighting(options.highlighting);
 
   const delay = options.compiler.delay ?? 0;
-  const workspaceController = options.analyzer
-    ? workspaceRegistry.getController({
+  const extensions: Extension[] = [shiki.extension, lintGutter()];
+
+  if (options.analyzer) {
+    const workspaceController = workspaceRegistry.getController({
       analyzer: options.analyzer.instance,
       compiler: options.compiler.instance,
       projectRootPath: options.analyzer.projectRootPath,
       projectEntryPath: options.analyzer.projectEntryPath,
-    })
-    : undefined;
+    });
 
-  const typstPlugin = ViewPlugin.define(
-    (view) =>
-      new TypstPlugin({
-        compiler: options.compiler.instance,
-        workspaceController,
-        compileDelay: delay,
-        filePath,
-        getFiles,
-        onCompile: options.compiler.onCompile,
-        onDiagnostics,
-      }, view),
-    {},
-  );
+    const pushPlugin = ViewPlugin.define(
+      (view) =>
+        new PushDiagnosticsPlugin(
+          {
+            workspaceController,
+            compileDelay: delay,
+            filePath,
+            getFiles,
+            onCompile: options.compiler.onCompile,
+            onDiagnostics,
+          },
+          view,
+        ),
+      {},
+    );
 
-  const extensions: Extension[] = [
-    shiki.extension,
-    typstPlugin,
-    lintGutter(),
-  ];
+    extensions.push(pushPlugin);
 
-  if (options.analyzer) {
     // Use lint infrastructure for rendering while diagnostics are push-based.
     extensions.push(linter(null, { delay }));
-  } else {
-    const linterExtension = linter(
-      async (view) => {
-        const plugin = view.plugin(typstPlugin) as TypstPlugin | null;
-        if (!plugin) return [];
-        return plugin.lint(view);
-      },
-      { delay },
-    );
-    extensions.push(linterExtension);
-  }
 
-  if (options.formatter) {
-    extensions.push(createTypstFormatter(options.formatter));
-  }
-
-  if (options.analyzer) {
-    const session = workspaceController!.analyzerSession;
+    const session = workspaceController.analyzerSession;
 
     extensions.push(
       autocompletion({
@@ -169,7 +151,34 @@ export async function createTypstExtensions(
         highlightCode: shiki.highlightCode,
       }),
     );
+  } else {
+    const compilerPlugin = ViewPlugin.define(
+      () =>
+        new CompilerLintPlugin({
+          compiler: options.compiler.instance,
+          filePath,
+          getFiles,
+          onCompile: options.compiler.onCompile,
+          onDiagnostics,
+        }),
+      {},
+    );
+
+    extensions.push(compilerPlugin);
+
+    const linterExtension = linter(
+      async (view) => {
+        const plugin = view.plugin(compilerPlugin) as CompilerLintPlugin | null;
+        if (!plugin) return [];
+        return plugin.lint(view);
+      },
+      { delay },
+    );
+    extensions.push(linterExtension);
   }
 
+  if (options.formatter) {
+    extensions.push(createTypstFormatter(options.formatter));
+  }
   return extensions;
 }
