@@ -1,5 +1,6 @@
 /** Minimal interface for the built TypstRenderer instance. */
 export interface RendererInstance {
+  free(): void;
   create_session(): RendererSession;
   manipulate_data(
     session: RendererSession,
@@ -70,6 +71,15 @@ export class TypstRenderer {
     const mod = await getRendererModule();
     await mod.default(this.wasmUrl);
     return new mod.TypstRendererBuilder().build();
+  }
+
+  /** Free the underlying WASM renderer instance. */
+  async destroy(): Promise<void> {
+    const instance = this.instance;
+    this.instance = null;
+    if (instance) {
+      (await instance).free();
+    }
   }
 
   /** Render a Typst vector artifact to an SVG string. */
