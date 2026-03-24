@@ -3,6 +3,63 @@ import type { EditorView, ViewUpdate } from "@codemirror/view";
 import type { AnalyzerSession, CompileResult, LspDiagnostic, TypstCompiler } from "@vedivad/typst-web-service";
 import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
 
+// ---------------------------------------------------------------------------
+// Shared debounce + throttle scheduler
+// ---------------------------------------------------------------------------
+
+interface CompileSchedulerOptions {
+    compileDelay?: number;
+    throttleDelay?: number;
+}
+
+class CompileScheduler {
+    private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    private throttleTimer: ReturnType<typeof setTimeout> | null = null;
+    private lastFireTime = 0;
+
+    constructor(private readonly options: CompileSchedulerOptions) {}
+
+    schedule(callback: () => void, immediate: boolean): void {
+        if (this.debounceTimer) {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = null;
+        }
+
+        const delay = immediate ? 0 : Math.max(0, this.options.compileDelay ?? 0);
+        this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = null;
+            this.fire(callback);
+        }, delay);
+
+        const throttle = this.options.throttleDelay;
+        if (!immediate && throttle != null && throttle > 0 && !this.throttleTimer) {
+            const wait = Math.max(0, throttle - (performance.now() - this.lastFireTime));
+            this.throttleTimer = setTimeout(() => {
+                this.throttleTimer = null;
+                if (this.debounceTimer) {
+                    clearTimeout(this.debounceTimer);
+                    this.debounceTimer = null;
+                    this.fire(callback);
+                }
+            }, wait);
+        }
+    }
+
+    private fire(callback: () => void): void {
+        this.lastFireTime = performance.now();
+        callback();
+    }
+
+    dispose(): void {
+        if (this.debounceTimer) clearTimeout(this.debounceTimer);
+        if (this.throttleTimer) clearTimeout(this.throttleTimer);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Compiler-only plugin
+// ---------------------------------------------------------------------------
+
 interface BasePluginOptions {
     /** File path this editor represents. Default: "/main.typ" */
     filePath?: string;
@@ -15,17 +72,33 @@ interface BasePluginOptions {
 
 export interface CompilerLintPluginOptions extends BasePluginOptions {
     compiler: TypstCompiler;
+    /** Debounce delay in ms before compile runs after doc changes. Default: 0. */
+    compileDelay?: number;
+    /** Throttle delay in ms — guarantees a compile at least this often during continuous typing. */
+    throttleDelay?: number;
 }
 
 export class CompilerLintPlugin {
     private controller: AbortController | null = null;
     private readonly path: string;
+    private readonly scheduler: CompileScheduler;
 
-    constructor(private readonly options: CompilerLintPluginOptions) {
+    constructor(
+        private readonly options: CompilerLintPluginOptions,
+        view?: EditorView,
+    ) {
         this.path = options.filePath ?? "/main.typ";
+        this.scheduler = new CompileScheduler(options);
+        if (view) this.scheduler.schedule(() => this.runCompile(view), true);
     }
 
-    async lint(view: EditorView): Promise<Diagnostic[]> {
+    update(update: ViewUpdate): void {
+        if (update.docChanged) {
+            this.scheduler.schedule(() => this.runCompile(update.view), false);
+        }
+    }
+
+    private async runCompile(view: EditorView): Promise<void> {
         this.controller?.abort();
         this.controller = new AbortController();
         const { signal } = this.controller;
@@ -35,7 +108,7 @@ export class CompilerLintPlugin {
 
         try {
             const result = await this.options.compiler.compile(files);
-            if (signal.aborted) return [];
+            if (signal.aborted) return;
 
             this.options.onCompile?.(result);
             const diagnostics = result.diagnostics
@@ -43,9 +116,13 @@ export class CompilerLintPlugin {
                 .map((d) => toCMDiagnostic(view.state, d));
 
             this.options.onDiagnostics?.(diagnostics);
-            return diagnostics;
+            try {
+                view.dispatch(setDiagnostics(view.state, diagnostics));
+            } catch {
+                // View may already be replaced/destroyed.
+            }
         } catch (err) {
-            if (signal.aborted) return [];
+            if (signal.aborted) return;
 
             const diagnostics: Diagnostic[] = [
                 {
@@ -58,12 +135,17 @@ export class CompilerLintPlugin {
             ];
 
             this.options.onDiagnostics?.(diagnostics);
-            return diagnostics;
+            try {
+                view.dispatch(setDiagnostics(view.state, diagnostics));
+            } catch {
+                // View may already be replaced/destroyed.
+            }
         }
     }
 
     destroy(): void {
         this.controller?.abort();
+        this.scheduler.dispose();
     }
 }
 
@@ -81,10 +163,8 @@ export interface PushDiagnosticsPluginOptions extends BasePluginOptions {
 export class PushDiagnosticsPlugin {
     private controller: AbortController | null = null;
     private readonly path: string;
+    private readonly scheduler: CompileScheduler;
     private unsubscribeDiagnostics?: () => void;
-    private syncTimer: ReturnType<typeof setTimeout> | null = null;
-    private throttleTimer: ReturnType<typeof setTimeout> | null = null;
-    private lastSyncTime = 0;
     private disposed = false;
 
     constructor(
@@ -92,15 +172,18 @@ export class PushDiagnosticsPlugin {
         view?: EditorView,
     ) {
         this.path = options.filePath ?? "/main.typ";
+        this.scheduler = new CompileScheduler(options);
 
         if (view) {
             this.bindPushDiagnostics(view);
-            this.scheduleSync(view, true);
+            this.scheduler.schedule(() => void this.runSync(view), true);
         }
     }
 
     update(update: ViewUpdate): void {
-        if (update.docChanged) this.scheduleSync(update.view, false);
+        if (update.docChanged) {
+            this.scheduler.schedule(() => void this.runSync(update.view), false);
+        }
     }
 
     async lint(_view: EditorView): Promise<Diagnostic[]> {
@@ -142,44 +225,8 @@ export class PushDiagnosticsPlugin {
         });
     }
 
-    private scheduleSync(view: EditorView, immediate: boolean): void {
-        if (this.syncTimer) {
-            clearTimeout(this.syncTimer);
-            this.syncTimer = null;
-        }
-
-        const delay = immediate ? 0 : Math.max(0, this.options.compileDelay ?? 0);
-        this.syncTimer = setTimeout(() => {
-            this.syncTimer = null;
-            this.fireSync(view);
-        }, delay);
-
-        // Throttle: if typing continues past the throttle window, force a compile
-        const throttle = this.options.throttleDelay;
-        if (!immediate && throttle != null && throttle > 0 && !this.throttleTimer) {
-            const elapsed = performance.now() - this.lastSyncTime;
-            const wait = Math.max(0, throttle - elapsed);
-            this.throttleTimer = setTimeout(() => {
-                this.throttleTimer = null;
-                // Only fire if debounce hasn't already fired
-                if (this.syncTimer) {
-                    clearTimeout(this.syncTimer);
-                    this.syncTimer = null;
-                    this.fireSync(view);
-                }
-            }, wait);
-        }
-    }
-
-    private fireSync(view: EditorView): void {
-        this.lastSyncTime = performance.now();
-        void this.runSync(view);
-    }
-
     private async runSync(view: EditorView): Promise<void> {
-        if (this.controller) {
-            this.controller.abort();
-        }
+        this.controller?.abort();
         this.controller = new AbortController();
         const { signal } = this.controller;
 
@@ -202,8 +249,7 @@ export class PushDiagnosticsPlugin {
     destroy(): void {
         this.disposed = true;
         this.controller?.abort();
-        if (this.syncTimer) clearTimeout(this.syncTimer);
-        if (this.throttleTimer) clearTimeout(this.throttleTimer);
+        this.scheduler.dispose();
         if (this.rafId != null) cancelAnimationFrame(this.rafId);
         this.unsubscribeDiagnostics?.();
         if (this.options.ownsSession !== false) {

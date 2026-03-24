@@ -156,28 +156,20 @@ export async function createTypstExtensions(
     );
   } else {
     const compilerPlugin = ViewPlugin.define(
-      () =>
+      (view) =>
         new CompilerLintPlugin({
           compiler: options.compiler.instance,
+          compileDelay: delay,
+          throttleDelay,
           filePath,
           getFiles,
           onCompile: options.compiler.onCompile,
           onDiagnostics,
-        }),
+        }, view),
       {},
     );
 
     extensions.push(compilerPlugin);
-
-    const linterExtension = linter(
-      async (view) => {
-        const plugin = view.plugin(compilerPlugin) as CompilerLintPlugin | null;
-        if (!plugin) return [];
-        return plugin.lint(view);
-      },
-      { delay },
-    );
-    extensions.push(linterExtension);
   }
 
   if (options.formatter) {
