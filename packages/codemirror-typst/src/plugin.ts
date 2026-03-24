@@ -8,7 +8,7 @@ import { lspToCMDiagnostic, toCMDiagnostic } from "./diagnostics.js";
 // ---------------------------------------------------------------------------
 
 interface CompileSchedulerOptions {
-    compileDelay?: number;
+    debounceDelay?: number;
     throttleDelay?: number;
 }
 
@@ -25,7 +25,7 @@ class CompileScheduler {
             this.debounceTimer = null;
         }
 
-        const delay = immediate ? 0 : Math.max(0, this.options.compileDelay ?? 0);
+        const delay = immediate ? 0 : Math.max(0, this.options.debounceDelay ?? 0);
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = null;
             this.fire(callback);
@@ -73,7 +73,7 @@ interface BasePluginOptions {
 export interface CompilerLintPluginOptions extends BasePluginOptions {
     compiler: TypstCompiler;
     /** Debounce delay in ms before compile runs after doc changes. Default: 0. */
-    compileDelay?: number;
+    debounceDelay?: number;
     /** Throttle delay in ms — guarantees a compile at least this often during continuous typing. */
     throttleDelay?: number;
 }
@@ -155,7 +155,7 @@ export interface PushDiagnosticsPluginOptions extends BasePluginOptions {
     ownsSession?: boolean;
     compiler: TypstCompiler;
     /** Debounce delay in ms before sync/compile runs after doc changes. Default: 0. */
-    compileDelay?: number;
+    debounceDelay?: number;
     /** Throttle delay in ms — guarantees a compile at least this often during continuous typing. */
     throttleDelay?: number;
 }

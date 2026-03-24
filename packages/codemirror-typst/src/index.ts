@@ -61,9 +61,19 @@ export interface TypstExtensionsOptions {
     instance: TypstCompiler;
     /** Called after each successful compile with the full result (e.g. for SVG preview). */
     onCompile?: (result: CompileResult) => void;
-    /** Debounce delay in ms — waits for typing to pause before compiling. Default: 0. */
-    delay?: number;
-    /** Throttle delay in ms — guarantees a compile at least this often during continuous typing. Default: none (disabled). */
+    /**
+     * Debounce delay in ms. Resets on every keystroke and fires once typing pauses.
+     * Without a debounce, every keystroke triggers an immediate compile.
+     * Best paired with `throttleDelay` to get periodic updates during long edits.
+     * Default: 0 (compile immediately).
+     */
+    debounceDelay?: number;
+    /**
+     * Throttle delay in ms. When typing continues past this window, forces a compile
+     * even if the debounce hasn't fired yet. Only effective when `debounceDelay` > 0 —
+     * without a debounce there is nothing to hold back.
+     * Default: disabled.
+     */
     throttleDelay?: number;
   };
   /** Tinymist analyzer for diagnostics, autocompletion, and hover. Omit to disable. */
@@ -104,7 +114,7 @@ export async function createTypstExtensions(
 
   const shiki = await createTypstShikiHighlighting(options.highlighting);
 
-  const delay = options.compiler.delay ?? 0;
+  const delay = options.compiler.debounceDelay ?? 0;
   const throttleDelay = options.compiler.throttleDelay;
   const extensions: Extension[] = [shiki.extension, lintGutter()];
 
@@ -123,7 +133,7 @@ export async function createTypstExtensions(
             session,
             ownsSession,
             compiler: options.compiler.instance,
-            compileDelay: delay,
+            debounceDelay: delay,
             throttleDelay,
             filePath,
             getFiles,
@@ -159,7 +169,7 @@ export async function createTypstExtensions(
       (view) =>
         new CompilerLintPlugin({
           compiler: options.compiler.instance,
-          compileDelay: delay,
+          debounceDelay: delay,
           throttleDelay,
           filePath,
           getFiles,
