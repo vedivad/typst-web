@@ -2,11 +2,15 @@
   "name": "@vedivad/typst-web-service",
   "version": "0.5.3",
   "description": "Editor-agnostic Typst compilation service running in a Web Worker",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/vedivad/typst-web.git",
     "directory": "packages/typst-web-service"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,9 +26,6 @@
       "import": "./dist/analyzer-worker.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch"
@@ -40,6 +41,5 @@
     "esbuild": "^0.27.3",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3"
-  },
-  "license": "MIT"
+  }
 }

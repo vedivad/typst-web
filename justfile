@@ -21,7 +21,13 @@ test-watch:
     bunx vitest
 
 format:
-    npx biome check --write .
+    bun run format
+
+lint:
+    bun run lint
+
+check:
+    bun run check
 
 release-check-clean:
     git diff --quiet || (echo "Working tree has unstaged changes. Commit/stash first:" && git status --short && exit 1)

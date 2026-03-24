@@ -1,8 +1,8 @@
 {
   "name": "codemirror-typst-demo",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -15,9 +15,9 @@
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6",
     "@myriaddreamin/typst-ts-renderer": "0.7.0-rc2",
-    "codemirror": "^6.0.2",
     "@vedivad/codemirror-typst": "workspace:*",
     "@vedivad/typst-web-service": "workspace:*",
+    "codemirror": "^6.0.2",
     "tinymist-web": "https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.14.10/tinymist-web.tar.gz"
   },
   "devDependencies": {

@@ -2,11 +2,22 @@
   "name": "@vedivad/codemirror-typst",
   "version": "0.5.3",
   "description": "CodeMirror 6 extension for Typst diagnostics with incremental compilation",
+  "keywords": [
+    "codemirror",
+    "codemirror-extension",
+    "diagnostics",
+    "linter",
+    "typst"
+  ],
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/vedivad/typst-web.git",
     "directory": "packages/codemirror-typst"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,9 +27,6 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch"
@@ -26,13 +34,6 @@
   "dependencies": {
     "@vedivad/typst-web-service": "workspace:^",
     "codemirror-shiki": "^0.3.0",
-    "shiki": "^4"
-  },
-  "peerDependencies": {
-    "@codemirror/autocomplete": "^6",
-    "@codemirror/lint": "^6",
-    "@codemirror/state": "^6",
-    "@codemirror/view": "^6",
     "shiki": "^4"
   },
   "devDependencies": {
@@ -43,12 +44,11 @@
     "tsup": "^8.0.0",
     "typescript": "^5.9.3"
   },
-  "keywords": [
-    "codemirror",
-    "typst",
-    "linter",
-    "diagnostics",
-    "codemirror-extension"
-  ],
-  "license": "MIT"
+  "peerDependencies": {
+    "@codemirror/autocomplete": "^6",
+    "@codemirror/lint": "^6",
+    "@codemirror/state": "^6",
+    "@codemirror/view": "^6",
+    "shiki": "^4"
+  }
 }

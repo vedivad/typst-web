@@ -120,11 +120,13 @@ export async function createTypstExtensions(
 
   if (options.analyzer) {
     const ownsSession = !options.analyzer.session;
-    const session = options.analyzer.session ?? new AnalyzerSession({
-      analyzer: options.analyzer.instance,
-      rootPath: options.analyzer.projectRootPath,
-      entryPath: options.analyzer.projectEntryPath,
-    });
+    const session =
+      options.analyzer.session ??
+      new AnalyzerSession({
+        analyzer: options.analyzer.instance,
+        rootPath: options.analyzer.projectRootPath,
+        entryPath: options.analyzer.projectEntryPath,
+      });
 
     const pushPlugin = ViewPlugin.define(
       (view) =>
@@ -167,15 +169,18 @@ export async function createTypstExtensions(
   } else {
     const compilerPlugin = ViewPlugin.define(
       (view) =>
-        new CompilerLintPlugin({
-          compiler: options.compiler.instance,
-          debounceDelay: delay,
-          throttleDelay,
-          filePath,
-          getFiles,
-          onCompile: options.compiler.onCompile,
-          onDiagnostics,
-        }, view),
+        new CompilerLintPlugin(
+          {
+            compiler: options.compiler.instance,
+            debounceDelay: delay,
+            throttleDelay,
+            filePath,
+            getFiles,
+            onCompile: options.compiler.onCompile,
+            onDiagnostics,
+          },
+          view,
+        ),
       {},
     );
 

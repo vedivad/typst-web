@@ -8,14 +8,16 @@
   "scripts": {
     "build": "bun run --cwd packages/typst-web-service build && bun run --cwd packages/codemirror-typst build",
     "dev": "bun run --filter 'packages/*' dev",
-    "format": "biome format --write .",
-    "lint": "biome lint .",
-    "check": "biome check --write .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "check": "bun run format:check && bun run lint",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.7",
+    "oxfmt": "^0.42.0",
+    "oxlint": "^1.57.0",
     "typescript": "^5.9.3",
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.0"

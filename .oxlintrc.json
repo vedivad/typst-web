@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript"],
+  "overrides": [
+    {
+      "files": ["demo/**"],
+      "rules": {
+        "typescript/no-non-null-assertion": "off"
+      }
+    },
+    {
+      "files": ["**/__tests__/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "typescript/no-non-null-assertion": "off"
+      }
+    }
+  ]
+}

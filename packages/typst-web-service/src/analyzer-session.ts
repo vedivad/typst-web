@@ -38,7 +38,10 @@ export class AnalyzerSession {
   private syncRevision = 0;
 
   // Diagnostic subscription state
-  private readonly listenersByUri = new Map<string, Set<DiagnosticsSubscriber>>();
+  private readonly listenersByUri = new Map<
+    string,
+    Set<DiagnosticsSubscriber>
+  >();
   private readonly diagnosticsByUri = new Map<string, LspDiagnostic[]>();
   private readonly diagnosticsHashByUri = new Map<string, string>();
   private readonly unsubscribeAnalyzer: () => void;
@@ -49,17 +52,19 @@ export class AnalyzerSession {
     this.entryPath = normalizePath(options.entryPath ?? "/main.typ");
     this.ready = this.analyzer.ready;
 
-    this.unsubscribeAnalyzer = this.analyzer.onDiagnostics((uri, diagnostics) => {
-      const nextHash = diagnosticsHash(diagnostics);
-      if (this.diagnosticsHashByUri.get(uri) === nextHash) return;
+    this.unsubscribeAnalyzer = this.analyzer.onDiagnostics(
+      (uri, diagnostics) => {
+        const nextHash = diagnosticsHash(diagnostics);
+        if (this.diagnosticsHashByUri.get(uri) === nextHash) return;
 
-      this.diagnosticsByUri.set(uri, diagnostics);
-      this.diagnosticsHashByUri.set(uri, nextHash);
+        this.diagnosticsByUri.set(uri, diagnostics);
+        this.diagnosticsHashByUri.set(uri, nextHash);
 
-      const listeners = this.listenersByUri.get(uri);
-      if (!listeners) return;
-      for (const listener of listeners) listener(diagnostics);
-    });
+        const listeners = this.listenersByUri.get(uri);
+        if (!listeners) return;
+        for (const listener of listeners) listener(diagnostics);
+      },
+    );
   }
 
   /** Build a tinymist URI from a project-relative path. */
@@ -177,11 +182,7 @@ export class AnalyzerSession {
       }
       await this.syncFile(activePath, mergedFiles[activePath], false);
 
-      return this.analyzer.completion(
-        this.toUri(activePath),
-        line,
-        character,
-      );
+      return this.analyzer.completion(this.toUri(activePath), line, character);
     });
   }
 

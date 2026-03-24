@@ -21,7 +21,10 @@ npm install @vedivad/codemirror-typst
 ```ts
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
-import { createTypstExtensions, TypstCompiler } from "@vedivad/codemirror-typst";
+import {
+  createTypstExtensions,
+  TypstCompiler,
+} from "@vedivad/codemirror-typst";
 
 const compiler = new TypstCompiler();
 
@@ -73,7 +76,8 @@ const typstExtensions = await createTypstExtensions({
         document.querySelector("#preview")!.innerHTML = svg;
       }
     },
-    delay: 300,
+    debounceDelay: 300,
+    throttleDelay: 2000,
   },
   analyzer: { instance: analyzer, session },
   formatter: { instance: formatter, formatOnSave: true },
@@ -86,7 +90,12 @@ const typstExtensions = await createTypstExtensions({
 For multi-file projects, each editor declares its `filePath` and provides a `getFiles` getter. Share a single `AnalyzerSession` across tabs to avoid redundant file synchronization:
 
 ```ts
-import { AnalyzerSession, createTypstExtensions, TypstAnalyzer, TypstCompiler } from "@vedivad/codemirror-typst";
+import {
+  AnalyzerSession,
+  createTypstExtensions,
+  TypstAnalyzer,
+  TypstCompiler,
+} from "@vedivad/codemirror-typst";
 import tinymistWasmUrl from "tinymist-web/pkg/tinymist_bg.wasm?url";
 
 const compiler = new TypstCompiler();
@@ -110,21 +119,21 @@ const extensions = await createTypstExtensions({
 
 ## Packages
 
-| Package | Purpose |
-|---|---|
-| [`@vedivad/codemirror-typst`](packages/codemirror-typst) | CodeMirror 6 extensions — highlighting, diagnostics, completion, hover, formatting |
-| [`@vedivad/typst-web-service`](packages/typst-web-service) | Editor-agnostic Typst services — compile, render, analyze, format via WASM |
+| Package                                                    | Purpose                                                                            |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [`@vedivad/codemirror-typst`](packages/codemirror-typst)   | CodeMirror 6 extensions — highlighting, diagnostics, completion, hover, formatting |
+| [`@vedivad/typst-web-service`](packages/typst-web-service) | Editor-agnostic Typst services — compile, render, analyze, format via WASM         |
 
 ## Service classes
 
 Four independent classes, each wrapping a WASM module with lazy loading:
 
-| Class | Runs on | WASM loading | Purpose |
-|---|---|---|---|
-| `TypstCompiler` | Web Worker | CDN (automatic) | `compile()` → diagnostics + vector, `compilePdf()` → PDF |
-| `TypstRenderer` | Main thread | CDN (automatic) | `renderSvg(vector)` → SVG string |
-| `TypstFormatter` | Main thread | Bundler (static import) | `format(source)`, `formatRange(source, start, end)` |
-| `TypstAnalyzer` | Web Worker | User-provided `wasmUrl` | LSP diagnostics, completion, hover via tinymist |
+| Class            | Runs on     | WASM loading            | Purpose                                                  |
+| ---------------- | ----------- | ----------------------- | -------------------------------------------------------- |
+| `TypstCompiler`  | Web Worker  | CDN (automatic)         | `compile()` → diagnostics + vector, `compilePdf()` → PDF |
+| `TypstRenderer`  | Main thread | CDN (automatic)         | `renderSvg(vector)` → SVG string                         |
+| `TypstFormatter` | Main thread | Bundler (static import) | `format(source)`, `formatRange(source, start, end)`      |
+| `TypstAnalyzer`  | Web Worker  | User-provided `wasmUrl` | LSP diagnostics, completion, hover via tinymist          |
 
 Each class is independent — import only what you need.
 
@@ -170,14 +179,14 @@ const rangeResult = await formatter.formatRange(source, start, end);
 
 Config options ([typstyle docs](https://github.com/typstyle-rs/typstyle)):
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `tab_spaces` | `number` | `2` | Spaces per indentation level |
-| `max_width` | `number` | `80` | Maximum line width |
-| `blank_lines_upper_bound` | `number` | — | Max consecutive blank lines |
-| `collapse_markup_spaces` | `boolean` | — | Collapse whitespace in markup |
-| `reorder_import_items` | `boolean` | — | Sort import items alphabetically |
-| `wrap_text` | `boolean` | — | Wrap text to fit within `max_width` |
+| Option                    | Type      | Default | Description                         |
+| ------------------------- | --------- | ------- | ----------------------------------- |
+| `tab_spaces`              | `number`  | `2`     | Spaces per indentation level        |
+| `max_width`               | `number`  | `80`    | Maximum line width                  |
+| `blank_lines_upper_bound` | `number`  | —       | Max consecutive blank lines         |
+| `collapse_markup_spaces`  | `boolean` | —       | Collapse whitespace in markup       |
+| `reorder_import_items`    | `boolean` | —       | Sort import items alphabetically    |
+| `wrap_text`               | `boolean` | —       | Wrap text to fit within `max_width` |
 
 ### LSP analysis with tinymist
 
@@ -200,8 +209,16 @@ analyzer.onDiagnostics((uri, diagnostics) => {
 });
 
 await analyzer.didChange("untitled:project/main.typ", source);
-const completions = await analyzer.completion("untitled:project/main.typ", line, character);
-const hover = await analyzer.hover("untitled:project/main.typ", line, character);
+const completions = await analyzer.completion(
+  "untitled:project/main.typ",
+  line,
+  character,
+);
+const hover = await analyzer.hover(
+  "untitled:project/main.typ",
+  line,
+  character,
+);
 
 analyzer.destroy();
 ```
@@ -221,9 +238,28 @@ formatter: {
 }
 ```
 
+### Compile timing
+
+Control when compilation fires after document changes with `delay` (debounce) and `throttleDelay` (throttle):
+
+```ts
+compiler: {
+  instance: compiler,
+  debounceDelay: 300,  // wait 300ms after typing stops
+  throttleDelay: 2000, // but force a compile at least every 2s during continuous typing
+}
+```
+
+| Option          | Default  | Behavior                                                                                                                                        |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `debounceDelay` | `0`      | Debounce — resets on every keystroke, fires once typing pauses. `0` means compile immediately on each change.                                   |
+| `throttleDelay` | disabled | Throttle — forces a compile when typing continues past this window, even if the debounce hasn't fired. Only effective when `debounceDelay` > 0. |
+
+Both options apply to either diagnostics mode (compiler-only or analyzer).
+
 ### Diagnostics modes
 
-- **Without `analyzer`**: CodeMirror linter pulls diagnostics from `TypstCompiler`.
+- **Without `analyzer`**: diagnostics are pulled from `TypstCompiler` after each compile.
 - **With `analyzer`**: diagnostics are push-only from tinymist. The linter extension renders markers but doesn't source diagnostics.
 
 ## Architecture
@@ -275,13 +311,14 @@ graph TD
 
 ### Commands
 
-| Command | Description |
-|---|---|
-| `just install` | Install dependencies |
-| `just build` | Build both packages |
-| `just test` | Run tests with [Vitest](https://vitest.dev) |
-| `just format` | Format and lint with [Biome](https://biomejs.dev) |
-| `just dev` | Build packages and start the demo dev server |
+| Command        | Description                                                                         |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `just install` | Install dependencies                                                                |
+| `just build`   | Build both packages                                                                 |
+| `just test`    | Run tests with [Vitest](https://vitest.dev)                                         |
+| `just format`  | Format with [Oxc Formatter (oxfmt)](https://oxc.rs/docs/guide/usage/formatter.html) |
+| `just lint`    | Lint with [Oxlint](https://oxc.rs/docs/guide/usage/linter.html)                     |
+| `just dev`     | Build packages and start the demo dev server                                        |
 
 ### Demo
 
