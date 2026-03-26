@@ -66,6 +66,45 @@ describe("AnalyzerSession subscriptions", () => {
 
     expect(listener).toHaveBeenCalledTimes(2);
   });
+
+  it("replays cached diagnostics to a new subscriber immediately", () => {
+    const harness = createSessionHarness();
+
+    // Push before any subscriber is registered.
+    harness.pushDiagnostics("untitled:project/main.typ", [diagnostic("error A")]);
+
+    // Late subscriber should get the cached value immediately.
+    const listener = vi.fn();
+    harness.session.subscribe("/main.typ", listener);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0][0].message).toBe("error A");
+  });
+
+  it("does not replay if no push has arrived for that URI", () => {
+    const harness = createSessionHarness();
+
+    // Push for a different file.
+    harness.pushDiagnostics("untitled:project/template.typ", [diagnostic("error")]);
+
+    const listener = vi.fn();
+    harness.session.subscribe("/main.typ", listener);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("replays the most recent push, not an older one", () => {
+    const harness = createSessionHarness();
+
+    harness.pushDiagnostics("untitled:project/main.typ", [diagnostic("error A")]);
+    harness.pushDiagnostics("untitled:project/main.typ", [diagnostic("error B")]);
+
+    const listener = vi.fn();
+    harness.session.subscribe("/main.typ", listener);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0][0].message).toBe("error B");
+  });
 });
 
 describe("AnalyzerSession force sync", () => {

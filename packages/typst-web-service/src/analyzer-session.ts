@@ -41,6 +41,8 @@ export class AnalyzerSession {
     string,
     Set<DiagnosticsSubscriber>
   >();
+  /** Last push received per URI. Replayed on subscribe() so tab-back shows correct diagnostics instantly. */
+  private readonly diagnosticsCache = new Map<string, LspDiagnostic[]>();
   private readonly unsubscribeAnalyzer: () => void;
 
   constructor(options: AnalyzerSessionOptions) {
@@ -51,6 +53,7 @@ export class AnalyzerSession {
 
     this.unsubscribeAnalyzer = this.analyzer.onDiagnostics(
       (uri, diagnostics) => {
+        this.diagnosticsCache.set(uri, diagnostics);
         const listeners = this.listenersByUri.get(uri);
         if (!listeners) return;
         for (const listener of listeners) listener(diagnostics);
@@ -77,6 +80,11 @@ export class AnalyzerSession {
       this.listenersByUri.set(uri, listeners);
     }
     listeners.add(listener);
+
+    // Replay the last known diagnostics immediately so the UI reflects the
+    // correct state without waiting for the next tinymist push.
+    const cached = this.diagnosticsCache.get(uri);
+    if (cached) listener(cached);
 
     return () => {
       const current = this.listenersByUri.get(uri);
@@ -198,6 +206,7 @@ export class AnalyzerSession {
   destroy(): void {
     this.unsubscribeAnalyzer();
     this.listenersByUri.clear();
+    this.diagnosticsCache.clear();
   }
 
   private async syncFile(path: string, content: string, force = false): Promise<void> {

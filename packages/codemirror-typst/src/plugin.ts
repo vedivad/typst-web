@@ -200,12 +200,9 @@ export class PushDiagnosticsPlugin {
 
         if (view) {
             this.bindPushDiagnostics(view);
-            // Clear any stale diagnostics from restored EditorState before the async
-            // force sync resolves. Use setTimeout to stay outside the view constructor.
-            setTimeout(() => {
-                if (this.disposed) return;
-                try { view.dispatch(setDiagnostics(view.state, [])); } catch { /* ignore */ }
-            }, 0);
+            // bindPushDiagnostics replays cached diagnostics synchronously via subscribe(),
+            // so the UI shows the correct state immediately. Force sync still runs to
+            // trigger fresh analysis in case the content changed while on another tab.
             this.scheduler.schedule(() => this.runSync(view, true).catch((err) => console.error("[typst] sync failed:", err)), true);
         }
     }
@@ -217,11 +214,9 @@ export class PushDiagnosticsPlugin {
             this.unsubscribeDiagnostics?.();
             this.unsubscribeDiagnostics = undefined;
             this.bindPushDiagnostics(update.view);
-            // Clear stale diagnostics from the restored EditorState immediately so
-            // the old file's errors don't persist until the async force sync resolves.
-            this.pendingDiagnostics = [];
-            try { update.view.dispatch(setDiagnostics(update.view.state, [])); } catch { /* ignore */ }
-            // Force re-analysis so tinymist re-evaluates even if content is unchanged.
+            // bindPushDiagnostics replays cached diagnostics for the new path synchronously,
+            // replacing any stale diagnostics from the restored EditorState immediately.
+            // Force sync still runs to trigger fresh analysis in case content changed.
             this.scheduler.schedule(() => this.runSync(update.view, true).catch((err) => console.error("[typst] sync failed:", err)), true);
             return;
         }
