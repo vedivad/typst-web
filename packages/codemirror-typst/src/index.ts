@@ -13,7 +13,8 @@ import { toCMDiagnostic } from "./diagnostics.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
 import { createTypstHover } from "./hover.js";
-import { CompilerLintPlugin, PushDiagnosticsPlugin } from "./plugin.js";
+import { CompilerLintPlugin } from "./compiler-plugin.js";
+import { PushDiagnosticsPlugin } from "./push-diagnostics-plugin.js";
 import type { TypstShikiHighlighting, TypstShikiOptions } from "./shiki.js";
 import {
   createTypstShikiExtension,

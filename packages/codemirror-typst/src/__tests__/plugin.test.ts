@@ -1,7 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import type { DiagnosticMessage } from "@vedivad/typst-web-service";
 import { describe, expect, it, vi } from "vitest";
-import { CompilerLintPlugin } from "../plugin.js";
+import { CompilerLintPlugin } from "../compiler-plugin.js";
 
 function mockView(doc: string) {
   const state = EditorState.create({ doc });
