@@ -18,6 +18,7 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "./types.js";
+import { postError } from "./worker-utils.js";
 
 const MAIN_FILE = "/main.typ";
 
@@ -79,14 +80,6 @@ async function compile(
     },
   );
   return { diagnostics, vector: result.result ?? undefined };
-}
-
-function postError(id: number, err: unknown): void {
-  self.postMessage({
-    type: "error",
-    id,
-    message: err instanceof Error ? err.message : String(err),
-  } satisfies WorkerResponse);
 }
 
 function transferBuffer(data: Uint8Array): ArrayBuffer {
