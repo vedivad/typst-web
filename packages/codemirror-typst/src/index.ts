@@ -27,7 +27,6 @@ export type {
   TypstRendererOptions,
 } from "@vedivad/typst-web-service";
 export {
-  AnalyzerSession,
   TypstAnalyzer,
   TypstCompiler,
   TypstFormatter,
@@ -48,6 +47,9 @@ export {
 // ---------------------------------------------------------------------------
 // High-level API: createTypstExtensions
 // ---------------------------------------------------------------------------
+
+/** Implicit session cache: one session per TypstAnalyzer instance. */
+const sessionCache = new WeakMap<TypstAnalyzer, AnalyzerSession>();
 
 export interface TypstExtensionsOptions {
   /** File path this editor represents. Default: "/main.typ" */
@@ -79,12 +81,10 @@ export interface TypstExtensionsOptions {
   /** Tinymist analyzer for diagnostics, autocompletion, and hover. Omit to disable. */
   analyzer?: {
     instance: TypstAnalyzer;
-    /** Shared AnalyzerSession. When provided, the session is reused (not destroyed with the plugin). When omitted, a new session is created and destroyed with the editor. */
-    session?: AnalyzerSession;
-    /** Project root path for the analyzer session. Default: "/project". Ignored when session is provided. */
-    projectRootPath?: string;
-    /** Entry path for the analyzer session. Default: "/main.typ". Ignored when session is provided. */
-    projectEntryPath?: string;
+    /** Project root path for the analyzer session. Default: "/project". Shared when the same analyzer instance is reused across editors. */
+    rootPath?: string;
+    /** Entry path for the analyzer session. Default: "/main.typ". Shared when the same analyzer instance is reused across editors. */
+    entryPath?: string;
   };
   /** Code formatter. Omit to disable. */
   formatter?: TypstFormatterOptions;
@@ -119,21 +119,23 @@ export async function createTypstExtensions(
   const extensions: Extension[] = [shiki.extension, lintGutter()];
 
   if (options.analyzer) {
-    const ownsSession = !options.analyzer.session;
-    const session =
-      options.analyzer.session ??
-      new AnalyzerSession({
-        analyzer: options.analyzer.instance,
-        rootPath: options.analyzer.projectRootPath,
-        entryPath: options.analyzer.projectEntryPath,
+    const { instance } = options.analyzer;
+    let session = sessionCache.get(instance);
+    if (!session) {
+      session = new AnalyzerSession({
+        analyzer: instance,
+        rootPath: options.analyzer.rootPath,
+        entryPath: options.analyzer.entryPath,
       });
+      sessionCache.set(instance, session);
+    }
 
     const pushPlugin = ViewPlugin.define(
       (view) =>
         new PushDiagnosticsPlugin(
           {
             session,
-            ownsSession,
+            ownsSession: false,
             compiler: options.compiler.instance,
             debounceDelay: delay,
             throttleDelay,

@@ -1,7 +1,6 @@
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
-  AnalyzerSession,
   createTypstExtensions,
   TypstAnalyzer,
   TypstCompiler,
@@ -27,7 +26,6 @@ const [formatter, compiler, renderer, analyzer] = await Promise.all([
   TypstRenderer.create(),
   TypstAnalyzer.create({ wasmUrl: tinymistWasmUrl }),
 ]);
-const session = new AnalyzerSession({ analyzer });
 
 const filePaths = Object.keys(files);
 
@@ -49,7 +47,7 @@ async function makeState(path: string, doc: string): Promise<EditorState> {
         }
       },
     },
-    analyzer: { instance: analyzer, session },
+    analyzer: { instance: analyzer },
     formatter: { instance: formatter, formatOnSave: true },
     highlighting: { theme: "dark" },
     onDiagnostics: (d) => {
