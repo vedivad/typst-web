@@ -225,10 +225,6 @@ export class PushDiagnosticsPlugin {
         }
     }
 
-    async lint(_view: EditorView): Promise<Diagnostic[]> {
-        return [];
-    }
-
     private bindPushDiagnostics(view: EditorView): void {
         if (this.unsubscribeDiagnostics) return;
 

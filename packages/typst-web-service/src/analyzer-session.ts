@@ -110,12 +110,10 @@ export class AnalyzerSession {
         if (filePath === activePath) continue;
         await this.syncFile(filePath, mergedFiles[filePath]);
       }
-      await this.syncFile(activePath, mergedFiles[activePath], force);
+      await this.syncFile(activePath, mergedFiles[activePath]);
 
-      // Force sync: trigger a lightweight hover to ensure the analyzer
-      // runs full analysis and publishes diagnostics.  Some WASM-based
-      // analyzers (e.g. tinymist-web) defer analysis after didChange and
-      // only process fully when handling a request such as hover.
+      // Force: trigger a hover to ensure the analyzer runs full analysis
+      // and publishes fresh diagnostics for the active file.
       if (force) {
         try {
           await this.analyzer.hover(this.toUri(activePath), 0, 0);
@@ -214,16 +212,10 @@ export class AnalyzerSession {
     this.diagnosticsCache.clear();
   }
 
-  private async syncFile(path: string, content: string, force = false): Promise<void> {
+  private async syncFile(path: string, content: string): Promise<void> {
     const prev = this.syncedFiles.get(path);
     if (prev == null) {
       await this.analyzer.didOpen(this.toUri(path), content);
-    } else if (force) {
-      // Tinymist deduplicates by content hash, so a didChange with identical content
-      // would be silently ignored. Send a trivial change (trailing comment) first to
-      // force a fresh analysis cycle, then restore the real content.
-      await this.analyzer.didChange(this.toUri(path), content + "\n//");
-      await this.analyzer.didChange(this.toUri(path), content);
     } else if (prev !== content) {
       await this.analyzer.didChange(this.toUri(path), content);
     }
