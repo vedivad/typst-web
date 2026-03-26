@@ -112,6 +112,18 @@ export class AnalyzerSession {
       }
       await this.syncFile(activePath, mergedFiles[activePath], force);
 
+      // Force sync: trigger a lightweight hover to ensure the analyzer
+      // runs full analysis and publishes diagnostics.  Some WASM-based
+      // analyzers (e.g. tinymist-web) defer analysis after didChange and
+      // only process fully when handling a request such as hover.
+      if (force) {
+        try {
+          await this.analyzer.hover(this.toUri(activePath), 0, 0);
+        } catch {
+          /* best-effort — the hover result is unused */
+        }
+      }
+
       // Clean up files that were removed from the project.
       for (const filePath of this.syncedFiles.keys()) {
         if (!Object.hasOwn(mergedFiles, filePath)) {

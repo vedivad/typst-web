@@ -167,6 +167,13 @@ describe("AnalyzerSession force sync", () => {
       expect.stringContaining("main.typ"),
       "hello",
     );
+    // Force sync also triggers a hover to ensure the analyzer publishes diagnostics.
+    expect(analyzer.hover).toHaveBeenCalledTimes(1);
+    expect(analyzer.hover).toHaveBeenCalledWith(
+      expect.stringContaining("main.typ"),
+      0,
+      0,
+    );
   });
 
   it("intermediate push from bump version does not overwrite final diagnostics if both arrive before rAF", () => {
