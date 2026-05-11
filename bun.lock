@@ -33,7 +33,7 @@
     },
     "packages/codemirror-typst": {
       "name": "@vedivad/codemirror-typst",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "dependencies": {
         "@vedivad/typst-web-service": "workspace:^",
         "codemirror-shiki": "^0.3.0",
@@ -59,7 +59,7 @@
     },
     "packages/typst-web-service": {
       "name": "@vedivad/typst-web-service",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "dependencies": {
         "@myriaddreamin/typst-ts-renderer": "^0.7.0-rc2",
         "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
@@ -76,7 +76,7 @@
     },
     "packages/typst-web-yjs": {
       "name": "@vedivad/typst-web-yjs",
-      "version": "0.9.3",
+      "version": "0.11.0",
       "devDependencies": {
         "@vedivad/typst-web-service": "workspace:^",
         "tsup": "^8.0.0",
@@ -85,7 +85,7 @@
         "yjs": "^13.6.0",
       },
       "peerDependencies": {
-        "@vedivad/typst-web-service": "^0.9.3",
+        "@vedivad/typst-web-service": "^0.11.0",
         "yjs": "^13.6.0",
       },
     },

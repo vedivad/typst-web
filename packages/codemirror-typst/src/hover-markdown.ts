@@ -38,6 +38,46 @@ function normalizeTypstCode(code: string): string {
   );
 }
 
+/**
+ * Strip trailing newlines so shiki doesn't render an empty `<span class="line">`
+ * at the end (markdown-it preserves the closing newline of a fenced block).
+ */
+function stripTrailingNewlines(code: string): string {
+  return code.replace(/\n+$/, "");
+}
+
+/**
+ * Tag shiki's outer `<pre>` with `cm-typst-hover-code` so consumers have a
+ * single, stable hook regardless of how the code reached the highlighter.
+ * Returning a string that starts with `<pre` also prevents markdown-it from
+ * wrapping the result in its own `<pre><code class="language-…">…</code></pre>`
+ * shell, which would otherwise nest two `<pre>` elements.
+ *
+ * Also strips shiki's inline `background-color` so consumers can theme the
+ * code-block background via CSS without needing `!important` to beat the
+ * inline style. Foreground `color` is preserved so syntax-highlighting
+ * default colors still apply.
+ */
+function tagShikiHoverCode(html: string): string {
+  // Remove just the background-color declaration from the inline style.
+  // Trailing semicolon is optional; collapse any leftover empty style="".
+  const withoutBg = html
+    .replace(/background-color\s*:\s*[^;"]+;?/, "")
+    .replace(/\sstyle=""/, "");
+  if (withoutBg.startsWith('<pre class="')) {
+    return withoutBg.replace(
+      /^<pre class="/,
+      '<pre class="cm-typst-hover-code ',
+    );
+  }
+  if (withoutBg.startsWith("<pre")) {
+    return withoutBg.replace(/^<pre/, '<pre class="cm-typst-hover-code"');
+  }
+  // Highlighter returned something unexpected; wrap defensively so the
+  // result still starts with `<pre` and bypasses markdown-it's wrapping.
+  return `<pre class="cm-typst-hover-code">${withoutBg}</pre>`;
+}
+
 function ensureSignatureFence(md: string): string {
   const lines = md.split("\n");
   const first = lines[0]?.trimStart() ?? "";
@@ -75,10 +115,11 @@ function createParser(highlightCode?: CodeHighlighter): MarkdownIt {
     linkify: true,
     highlight(code, lang) {
       const language = canonicalCodeLanguage(lang.trim());
-      const normalizedCode =
-        language === "typst" ? normalizeTypstCode(code) : code;
+      const normalizedCode = stripTrailingNewlines(
+        language === "typst" ? normalizeTypstCode(code) : code,
+      );
       if (highlightCode && language) {
-        return `<div class="cm-typst-hover-code">${highlightCode(normalizedCode, language)}</div>`;
+        return tagShikiHoverCode(highlightCode(normalizedCode, language));
       }
 
       const escapedCode = mdParser.utils.escapeHtml(normalizedCode);
@@ -182,11 +223,12 @@ function renderSignature(
   if (!signature) return "";
 
   const { code, language } = signature;
+  const trimmed = stripTrailingNewlines(code);
   if (highlightCode && language) {
-    return `<div class="cm-typst-hover-code">${highlightCode(code, language)}</div>`;
+    return tagShikiHoverCode(highlightCode(trimmed, language));
   }
 
-  const escapedCode = mdParser.utils.escapeHtml(code);
+  const escapedCode = mdParser.utils.escapeHtml(trimmed);
   const escapedLang = language
     ? ` class="language-${mdParser.utils.escapeHtml(language)}"`
     : "";

@@ -302,6 +302,7 @@ Useful selectors:
 - `.cm-typst-hover-summary`
 - `.cm-typst-hover-open-docs`
 - `.cm-typst-hover-section`
+- `.cm-typst-hover-code`
 - `.cm-typst-hover-pre`
 
 Header element order is controllable via CSS `order` on `.cm-typst-hover-summary`, `.cm-typst-hover-signature`, and `.cm-typst-hover-header-actions`.
