@@ -44,6 +44,8 @@ export class TypstRenderer {
   readonly #worker: Worker;
   readonly #wasmUrl: string;
   #initPromise: Promise<void> | null = null;
+  #pending: Uint8Array | null = null;
+  #inflight: Promise<string> | null = null;
 
   private constructor(worker: Worker, proxy: Comlink.Remote<RendererWorker>, wasmUrl: string) {
     this.#worker = worker;
@@ -75,10 +77,40 @@ export class TypstRenderer {
     this.#worker.terminate();
   }
 
-  /** Render a Typst vector artifact to a single merged SVG string. */
-  async renderSvg(vector: Uint8Array): Promise<string> {
-    await this.#ensureInit();
-    return this.#proxy.renderSvg(vector);
+  /**
+   * Render a Typst vector artifact to a single merged SVG string.
+   *
+   * Ownership of `vector.buffer` transfers to the worker (zero-copy).
+   * Don't reuse the vector after passing it in — accessing its bytes from
+   * the main thread after this call is undefined behavior.
+   *
+   * Concurrent calls are serialized in the worker: while a render is in
+   * flight, the most recent `vector` becomes the next render and any
+   * intermediate calls are dropped. All overlapping callers share one
+   * returned promise that resolves with the LAST rendered SVG — your
+   * specific vector may have been superseded.
+   */
+  renderSvg(vector: Uint8Array): Promise<string> {
+    this.#pending = vector;
+    this.#inflight ??= this.#drain();
+    return this.#inflight;
+  }
+
+  async #drain(): Promise<string> {
+    try {
+      await this.#ensureInit();
+      let result = "";
+      while (this.#pending) {
+        const vector = this.#pending;
+        this.#pending = null;
+        result = await this.#proxy.renderSvg(
+          Comlink.transfer(vector, [vector.buffer as ArrayBuffer]),
+        );
+      }
+      return result;
+    } finally {
+      this.#inflight = null;
+    }
   }
 
   /**

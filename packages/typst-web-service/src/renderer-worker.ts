@@ -1,6 +1,7 @@
 import * as Comlink from "comlink";
 import {
   createTypstRenderer,
+  type RenderSession,
   type TypstRenderer as InnerTypstRenderer,
 } from "@myriaddreamin/typst.ts";
 // Static import so esbuild bundles the wasm-bindgen JS shim into the worker.
@@ -10,10 +11,17 @@ import * as typstTsRenderer from "@myriaddreamin/typst-ts-renderer";
 
 export class RendererWorker {
   #inner: InnerTypstRenderer | null = null;
+  #session: RenderSession | null = null;
+  #closeSession: (() => void) | null = null;
 
   #ensureInner(): InnerTypstRenderer {
     if (!this.#inner) throw new Error("Renderer not initialized");
     return this.#inner;
+  }
+
+  #ensureSession(): RenderSession {
+    if (!this.#session) throw new Error("Renderer not initialized");
+    return this.#session;
   }
 
   async init(wasmUrl: string): Promise<void> {
@@ -22,6 +30,12 @@ export class RendererWorker {
       getModule: () => wasmUrl,
       getWrapper: () => Promise.resolve(typstTsRenderer),
     });
+    // Hold one render session open for the worker's lifetime so decoded
+    // image bitmaps + fonts stay warm in the WASM side across compiles.
+    // Each `renderSvg` resets the artifact data; cached resources persist.
+    const { session, close } = await openSession(this.#inner);
+    this.#session = session;
+    this.#closeSession = close;
   }
 
   /**
@@ -31,15 +45,40 @@ export class RendererWorker {
    * require DOMParser, which Web Workers don't have.
    */
   async renderSvg(vector: Uint8Array): Promise<string> {
-    return this.#ensureInner().renderSvg({
-      format: "vector",
-      artifactContent: vector,
-    });
+    const session = this.#ensureSession();
+    session.manipulateData({ action: "reset", data: vector });
+    return this.#ensureInner().renderSvg({ renderSession: session });
   }
 
   destroy(): void {
+    this.#closeSession?.();
+    this.#closeSession = null;
+    this.#session = null;
     this.#inner = null;
   }
+}
+
+// typst.ts scope-guards sessions: `runWithSession(fn)` frees the session when
+// `fn` resolves. We hold one open by parking it on a never-resolving promise
+// that only resolves when `close()` is called.
+async function openSession(
+  inner: InnerTypstRenderer,
+): Promise<{ session: RenderSession; close: () => void }> {
+  let close!: () => void;
+  const closed = new Promise<void>((resolve) => {
+    close = resolve;
+  });
+  let session!: RenderSession;
+  await new Promise<void>((ready, reject) => {
+    void inner
+      .runWithSession(async (s) => {
+        session = s;
+        ready();
+        await closed;
+      })
+      .catch(reject);
+  });
+  return { session, close };
 }
 
 Comlink.expose(new RendererWorker());
