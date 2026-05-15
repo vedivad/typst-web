@@ -1,39 +1,12 @@
-/** Minimal interface for the built TypstRenderer instance. */
-export interface RendererInstance {
-  free(): void;
-  create_session(): RendererSession;
-  manipulate_data(
-    session: RendererSession,
-    action: string,
-    data: Uint8Array,
-  ): void;
-  svg_data(session: RendererSession): string;
-}
-
-/** Minimal interface for a TypstRenderer session. */
-export interface RendererSession {
-  free(): void;
-}
-
-type RendererWasmModule = typeof import("@myriaddreamin/typst-ts-renderer");
+import {
+  createTypstRenderer,
+  type RenderSession,
+  type TypstRenderer as InnerTypstRenderer,
+} from "@myriaddreamin/typst.ts";
 
 declare const __TYPST_TS_RENDERER_VERSION__: string;
 
 const DEFAULT_RENDERER_WASM_URL = `https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer@${__TYPST_TS_RENDERER_VERSION__}/pkg/typst_ts_renderer_bg.wasm`;
-
-let rendererModulePromise: Promise<RendererWasmModule> | null = null;
-
-function getRendererModule(): Promise<RendererWasmModule> {
-  if (!rendererModulePromise) {
-    rendererModulePromise = import("@myriaddreamin/typst-ts-renderer").catch(
-      (err) => {
-        rendererModulePromise = null;
-        throw err;
-      },
-    );
-  }
-  return rendererModulePromise;
-}
 
 export interface TypstRendererOptions {
   /** URL to the typst-ts-renderer WASM binary. Defaults to jsDelivr CDN. */
@@ -54,60 +27,57 @@ export interface RenderedSvgPage {
 /**
  * Converts Typst vector artifacts to SVG strings.
  *
- * The renderer WASM module is loaded lazily on first use.
+ * Thin wrapper around `@myriaddreamin/typst.ts`'s renderer: we own the public
+ * API surface and WASM-URL convention; typst.ts owns the WASM session,
+ * sub-page rendering, and lifecycle. See `renderer.mts` in that package for
+ * the inner mechanics.
  *
  *   const renderer = TypstRenderer.create();
  *   const svg = await renderer.renderSvg(vector);
  */
 export class TypstRenderer {
-  private wasmUrl: string;
-  private instance: Promise<RendererInstance> | null = null;
+  private readonly wasmUrl: string;
+  private inner: Promise<InnerTypstRenderer> | null = null;
 
   private constructor(options: TypstRendererOptions = {}) {
     this.wasmUrl = options.wasmUrl ?? DEFAULT_RENDERER_WASM_URL;
-    // Eagerly start loading the WASM module so it's ready by first use.
-    getRendererModule().catch(() => {});
+    // Kick off WASM fetch eagerly so it's warm by first render.
+    void this.getInner();
   }
 
   static create(options: TypstRendererOptions = {}): TypstRenderer {
     return new TypstRenderer(options);
   }
 
-  private getInstance(): Promise<RendererInstance> {
-    if (!this.instance) {
-      this.instance = this.#init().catch((err) => {
-        this.instance = null;
+  private getInner(): Promise<InnerTypstRenderer> {
+    if (!this.inner) {
+      this.inner = this.#initInner().catch((err) => {
+        this.inner = null;
         throw err;
       });
     }
-    return this.instance;
+    return this.inner;
   }
 
-  async #init(): Promise<RendererInstance> {
-    const mod = await getRendererModule();
-    await mod.default({ module_or_path: this.wasmUrl });
-    return new mod.TypstRendererBuilder().build();
+  async #initInner(): Promise<InnerTypstRenderer> {
+    const inner = createTypstRenderer();
+    await inner.init({ getModule: () => this.wasmUrl });
+    return inner;
   }
 
-  /** Free the underlying WASM renderer instance. */
-  async destroy(): Promise<void> {
-    const instance = this.instance;
-    this.instance = null;
-    if (instance) {
-      (await instance).free();
-    }
+  /**
+   * Drop the reference to the inner renderer. The upstream wrapper doesn't
+   * expose an explicit free(); the WASM module is reclaimed when the page
+   * unloads. Consumers may still call this to release the JS-side handle.
+   */
+  destroy(): void {
+    this.inner = null;
   }
 
-  /** Render a Typst vector artifact to an SVG string. */
+  /** Render a Typst vector artifact to a single merged SVG string. */
   async renderSvg(vector: Uint8Array): Promise<string> {
-    const renderer = await this.getInstance();
-    const session = renderer.create_session();
-    try {
-      renderer.manipulate_data(session, "reset", vector);
-      return renderer.svg_data(session);
-    } finally {
-      session.free();
-    }
+    const inner = await this.getInner();
+    return inner.renderSvg({ format: "vector", artifactContent: vector });
   }
 
   /**
@@ -120,6 +90,164 @@ export class TypstRenderer {
    */
   async renderSvgPages(vector: Uint8Array): Promise<RenderedSvgPage[]> {
     return splitMergedSvgPages(await this.renderSvg(vector));
+  }
+
+  /**
+   * Mount an incremental canvas renderer into `root`. Each `update(vector)`
+   * call repaints the canvases in place. The win for image-heavy docs comes
+   * from the persistent WASM session: decoded image bitmaps are cached in
+   * the renderer, so subsequent paints skip the decode step. Canvas elements
+   * are recreated each update (typst.ts manages the DOM inside `root`), but
+   * canvas creation is cheap — the bottleneck the SVG path was solving was
+   * `<image>` data-URL decode, not DOM construction.
+   *
+   * Call `reset()` when switching to an unrelated document (next `update`
+   * starts fresh from the session). Call `dispose()` to free the session.
+   *
+   * Trade-off vs the SVG paths: output is rasterized — text in the rendered
+   * canvas isn't selectable, and zoom past `pixelPerPt` needs a re-render to
+   * stay crisp. typst.ts builds a `<canvas>` per page inside `root` and adds
+   * a text-semantic layer alongside it for screen readers / a11y.
+   */
+  createIncrementalCanvasRenderer(
+    root: HTMLElement,
+    options: IncrementalCanvasOptions = {},
+  ): IncrementalCanvasRenderer {
+    return new IncrementalCanvasImpl(root, () => this.getInner(), options);
+  }
+}
+
+export interface IncrementalCanvasOptions {
+  pixelPerPt?: number;
+  backgroundColor?: string;
+}
+
+export interface IncrementalCanvasRenderer {
+  /**
+   * Apply a new vector and repaint. First call seeds the session.
+   *
+   * Concurrent calls are serialized: while a repaint is in flight, the most
+   * recent `update` becomes the next paint and intermediates are dropped.
+   * All overlapping callers share one returned promise that resolves when
+   * the chain catches up — your specific vector may have been superseded.
+   */
+  update(vector: Uint8Array): Promise<void>;
+  /** Force the next `update` to re-seed (use when the doc identity changes). */
+  reset(): void;
+  /** Free the WASM session. */
+  dispose(): void;
+}
+
+// Hold a typst.ts render session alive across multiple operations. typst.ts's
+// API is scope-guarded (`runWithSession(fn)` frees the session when `fn`
+// resolves); we occupy it with a never-resolving inner promise and let
+// `close()` resolve it on dispose. The returned `session` is usable until
+// `close()` is called.
+async function openSession(
+  inner: InnerTypstRenderer,
+): Promise<{ session: RenderSession; close: () => void }> {
+  let close!: () => void;
+  const closed = new Promise<void>((resolve) => {
+    close = resolve;
+  });
+  let session!: RenderSession;
+  await new Promise<void>((ready, reject) => {
+    void inner
+      .runWithSession(async (s) => {
+        session = s;
+        ready();
+        await closed;
+      })
+      .catch(reject);
+  });
+  return { session, close };
+}
+
+// typst.ts uses 3 as its internal default (PIXEL_PER_PT). Match on standard
+// displays, bump on retina so canvases stay crisp at typical display sizes.
+function defaultPixelPerPt(): number {
+  const dpr =
+    typeof globalThis !== "undefined" &&
+    typeof (globalThis as { devicePixelRatio?: number }).devicePixelRatio === "number"
+      ? (globalThis as { devicePixelRatio: number }).devicePixelRatio
+      : 1;
+  return Math.max(dpr * 1.5, 3);
+}
+
+interface OpenedSession {
+  session: RenderSession;
+  close: () => void;
+  inner: InnerTypstRenderer;
+}
+
+class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
+  private opened: Promise<OpenedSession> | null = null;
+  private inflight: Promise<void> | null = null;
+  private pending: Uint8Array | null = null;
+  private firstUpdate = true;
+  private disposed = false;
+
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly getInner: () => Promise<InnerTypstRenderer>,
+    private readonly options: IncrementalCanvasOptions,
+  ) {}
+
+  private getOpened(): Promise<OpenedSession> {
+    this.opened ??= this.getInner().then(async (inner) => ({
+      ...(await openSession(inner)),
+      inner,
+    }));
+    return this.opened;
+  }
+
+  update(vector: Uint8Array): Promise<void> {
+    if (this.disposed) return Promise.resolve();
+    this.pending = vector;
+    this.inflight ??= this.drain();
+    return this.inflight;
+  }
+
+  private async drain(): Promise<void> {
+    try {
+      while (this.pending && !this.disposed) {
+        const vector = this.pending;
+        this.pending = null;
+        await this.paint(vector);
+      }
+    } finally {
+      this.inflight = null;
+    }
+  }
+
+  private async paint(vector: Uint8Array): Promise<void> {
+    const { session, inner } = await this.getOpened();
+    if (this.disposed) return;
+    // Commit firstUpdate before awaiting renderToCanvas: a `reset()` called
+    // mid-render must flip it back to true for the *next* paint instead of
+    // being clobbered when this one finishes.
+    const wasFirst = this.firstUpdate;
+    this.firstUpdate = false;
+    if (wasFirst) session.reset();
+    session.manipulateData({ action: "merge", data: vector });
+    await inner.renderToCanvas({
+      container: this.root,
+      renderSession: session,
+      pixelPerPt: this.options.pixelPerPt ?? defaultPixelPerPt(),
+      backgroundColor: this.options.backgroundColor ?? "#ffffff",
+    });
+  }
+
+  reset(): void {
+    this.firstUpdate = true;
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    // Fire-and-forget: if the session is still opening, we'll close it once
+    // it's ready; if it's already open, close immediately.
+    void this.opened?.then(({ close }) => close());
   }
 }
 
