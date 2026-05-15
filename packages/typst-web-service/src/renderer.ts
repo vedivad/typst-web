@@ -1,13 +1,18 @@
-import {
-  createTypstRenderer,
-  type TypstRenderer as InnerTypstRenderer,
-} from "@myriaddreamin/typst.ts";
+import * as Comlink from "comlink";
+import { createRendererWorker } from "./rpc.js";
+import type { RendererWorker } from "./renderer-worker.js";
 
 declare const __TYPST_TS_RENDERER_VERSION__: string;
 
 const DEFAULT_RENDERER_WASM_URL = `https://cdn.jsdelivr.net/npm/@myriaddreamin/typst-ts-renderer@${__TYPST_TS_RENDERER_VERSION__}/pkg/typst_ts_renderer_bg.wasm`;
 
 export interface TypstRendererOptions {
+  /**
+   * Explicit Worker instance. When omitted, an inlined blob worker is created
+   * automatically. Use this for Vite apps to get proper source maps:
+   *   `TypstRenderer.create({ worker: new Worker(new URL('typst-web-service/renderer-worker', import.meta.url)) })`
+   */
+  worker?: Worker;
   /** URL to the typst-ts-renderer WASM binary. Defaults to jsDelivr CDN. */
   wasmUrl?: string;
 }
@@ -24,59 +29,56 @@ export interface RenderedSvgPage {
 }
 
 /**
- * Converts Typst vector artifacts to SVG strings.
+ * Converts Typst vector artifacts to SVG strings, off the main thread.
  *
- * Thin wrapper around `@myriaddreamin/typst.ts`'s renderer: we own the public
- * API surface and WASM-URL convention; typst.ts owns the WASM session,
- * sub-page rendering, and lifecycle. See `renderer.mts` in that package for
- * the inner mechanics.
+ * Wraps `@myriaddreamin/typst.ts`'s renderer hosted in a Web Worker — the
+ * WASM init, vector → SVG conversion, and base64 image-embedding all happen
+ * off-thread. Returned SVG strings cross via Comlink; page splitting runs on
+ * the main thread (Workers don't have `DOMParser`).
  *
  *   const renderer = TypstRenderer.create();
  *   const svg = await renderer.renderSvg(vector);
  */
 export class TypstRenderer {
-  private readonly wasmUrl: string;
-  private inner: Promise<InnerTypstRenderer> | null = null;
+  readonly #proxy: Comlink.Remote<RendererWorker>;
+  readonly #worker: Worker;
+  readonly #wasmUrl: string;
+  #initPromise: Promise<void> | null = null;
 
-  private constructor(options: TypstRendererOptions = {}) {
-    this.wasmUrl = options.wasmUrl ?? DEFAULT_RENDERER_WASM_URL;
+  private constructor(worker: Worker, proxy: Comlink.Remote<RendererWorker>, wasmUrl: string) {
+    this.#worker = worker;
+    this.#proxy = proxy;
+    this.#wasmUrl = wasmUrl;
     // Kick off WASM fetch eagerly so it's warm by first render.
-    void this.getInner();
+    void this.#ensureInit();
   }
 
   static create(options: TypstRendererOptions = {}): TypstRenderer {
-    return new TypstRenderer(options);
+    const worker = options.worker ?? createRendererWorker();
+    const proxy = Comlink.wrap<RendererWorker>(worker);
+    return new TypstRenderer(worker, proxy, options.wasmUrl ?? DEFAULT_RENDERER_WASM_URL);
   }
 
-  private getInner(): Promise<InnerTypstRenderer> {
-    if (!this.inner) {
-      this.inner = this.#initInner().catch((err) => {
-        this.inner = null;
+  #ensureInit(): Promise<void> {
+    if (!this.#initPromise) {
+      this.#initPromise = this.#proxy.init(this.#wasmUrl).catch((err: unknown) => {
+        this.#initPromise = null;
         throw err;
       });
     }
-    return this.inner;
+    return this.#initPromise;
   }
 
-  async #initInner(): Promise<InnerTypstRenderer> {
-    const inner = createTypstRenderer();
-    await inner.init({ getModule: () => this.wasmUrl });
-    return inner;
-  }
-
-  /**
-   * Drop the reference to the inner renderer. The upstream wrapper doesn't
-   * expose an explicit free(); the WASM module is reclaimed when the page
-   * unloads. Consumers may still call this to release the JS-side handle.
-   */
+  /** Terminate the worker. The instance is unusable afterwards. */
   destroy(): void {
-    this.inner = null;
+    this.#proxy[Comlink.releaseProxy]();
+    this.#worker.terminate();
   }
 
   /** Render a Typst vector artifact to a single merged SVG string. */
   async renderSvg(vector: Uint8Array): Promise<string> {
-    const inner = await this.getInner();
-    return inner.renderSvg({ format: "vector", artifactContent: vector });
+    await this.#ensureInit();
+    return this.#proxy.renderSvg(vector);
   }
 
   /**

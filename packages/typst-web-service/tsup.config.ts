@@ -46,6 +46,16 @@ const { outputFiles: analyzerOutputFiles } = await build({
 
 const analyzerWorkerCode = analyzerOutputFiles[0].text;
 
+const { outputFiles: rendererOutputFiles } = await build({
+  entryPoints: ["src/renderer-worker.ts"],
+  bundle: true,
+  format: "iife",
+  write: false,
+  minify: true,
+});
+
+const rendererWorkerCode = rendererOutputFiles[0].text;
+
 export default defineConfig([
   {
     entry: { index: "src/index.ts" },
@@ -56,6 +66,7 @@ export default defineConfig([
     define: {
       __WORKER_CODE__: JSON.stringify(workerCode),
       __ANALYZER_WORKER_CODE__: JSON.stringify(analyzerWorkerCode),
+      __RENDERER_WORKER_CODE__: JSON.stringify(rendererWorkerCode),
       ...versionDefine,
     },
   },
@@ -77,5 +88,13 @@ export default defineConfig([
     splitting: false,
     define: versionDefine,
     noExternal: ["tinymist-web"],
+  },
+  {
+    entry: { "renderer-worker": "src/renderer-worker.ts" },
+    format: ["esm"],
+    sourcemap: true,
+    splitting: false,
+    define: versionDefine,
+    noExternal: ["@myriaddreamin/typst.ts", "@myriaddreamin/typst-ts-renderer"],
   },
 ]);

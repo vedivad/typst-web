@@ -24,6 +24,9 @@
     },
     "./analyzer-worker": {
       "import": "./dist/analyzer-worker.js"
+    },
+    "./renderer-worker": {
+      "import": "./dist/renderer-worker.js"
     }
   },
   "scripts": {

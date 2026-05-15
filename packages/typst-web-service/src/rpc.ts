@@ -1,6 +1,7 @@
 // Injected at build time by tsup (see tsup.config.ts)
 declare const __WORKER_CODE__: string;
 declare const __ANALYZER_WORKER_CODE__: string;
+declare const __RENDERER_WORKER_CODE__: string;
 
 /** Create a Worker from an inlined code string, auto-revoking the blob URL on terminate. */
 function createBlobWorker(code: string): Worker {
@@ -23,4 +24,9 @@ export function createWorker(): Worker {
 /** Create a blob Worker from the inlined analyzer worker code. */
 export function createAnalyzerWorker(): Worker {
   return createBlobWorker(__ANALYZER_WORKER_CODE__);
+}
+
+/** Create a blob Worker from the inlined renderer worker code. */
+export function createRendererWorker(): Worker {
+  return createBlobWorker(__RENDERER_WORKER_CODE__);
 }
