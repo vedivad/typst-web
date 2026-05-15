@@ -9,6 +9,7 @@ import {
 function mockProject() {
   return {
     setText: vi.fn().mockResolvedValue(undefined),
+    setBinary: vi.fn().mockResolvedValue(undefined),
     setMany: vi.fn().mockResolvedValue(undefined),
     remove: vi.fn().mockResolvedValue(undefined),
   };
@@ -21,16 +22,30 @@ function ytext(content = "", name = "text"): Y.Text {
   return text;
 }
 
-function yfiles(): Y.Map<Y.Text> {
+function yfiles(): Y.Map<Y.Text | Uint8Array> {
   const doc = new Y.Doc();
   return doc.getMap("files");
 }
 
-function addFile(files: Y.Map<Y.Text>, path: string, content = ""): Y.Text {
+function addFile(
+  files: Y.Map<Y.Text | Uint8Array>,
+  path: string,
+  content = "",
+): Y.Text {
   const text = new Y.Text();
   files.set(path, text);
   if (content) text.insert(0, content);
   return text;
+}
+
+function addBinary(
+  files: Y.Map<Y.Text | Uint8Array>,
+  path: string,
+  bytes: ArrayLike<number>,
+): Uint8Array {
+  const value = new Uint8Array(bytes);
+  files.set(path, value);
+  return value;
 }
 
 function deferred<T = void>() {
@@ -265,5 +280,125 @@ describe("syncYMapToTypstProject", () => {
       "/main.typ": "one",
     });
     expect(project.setText).toHaveBeenCalledWith("/main.typ", "two");
+  });
+
+  it("seeds binary entries through the initial setMany", async () => {
+    const project = mockProject();
+    const files = yfiles();
+    addFile(files, "/main.typ", "main");
+    const bytes = addBinary(files, "/logo.png", [137, 80, 78, 71]);
+
+    const sync = syncYMapToTypstProject({
+      project: project as any,
+      files,
+    });
+
+    await sync.ready;
+    expect(project.setMany).toHaveBeenCalledWith({
+      "/main.typ": "main",
+      "/logo.png": bytes,
+    });
+  });
+
+  it("uses setBinary when a single binary file is added after startup", async () => {
+    const project = mockProject();
+    const files = yfiles();
+    const sync = syncYMapToTypstProject({
+      project: project as any,
+      files,
+    });
+    await sync.ready;
+    project.setMany.mockClear();
+
+    const bytes = addBinary(files, "/logo.png", [137, 80, 78, 71]);
+    await sync.flush();
+
+    expect(project.setBinary).toHaveBeenCalledWith("/logo.png", bytes);
+    expect(project.setMany).not.toHaveBeenCalled();
+  });
+
+  it("uses setMany for mixed text + binary changes", async () => {
+    const project = mockProject();
+    const files = yfiles();
+    const sync = syncYMapToTypstProject({
+      project: project as any,
+      files,
+    });
+    await sync.ready;
+    project.setMany.mockClear();
+
+    const doc = files.doc!;
+    doc.transact(() => {
+      addFile(files, "/main.typ", "main");
+      addBinary(files, "/logo.png", [1, 2, 3]);
+    });
+    await sync.flush();
+
+    expect(project.setMany).toHaveBeenCalledTimes(1);
+    const call = project.setMany.mock.calls[0][0];
+    expect(call["/main.typ"]).toBe("main");
+    expect(call["/logo.png"]).toBeInstanceOf(Uint8Array);
+  });
+
+  it("removes binary files deleted from the map", async () => {
+    const project = mockProject();
+    const files = yfiles();
+    addBinary(files, "/logo.png", [1, 2, 3]);
+    const sync = syncYMapToTypstProject({
+      project: project as any,
+      files,
+    });
+    await sync.ready;
+
+    files.delete("/logo.png");
+    await sync.flush();
+
+    expect(project.remove).toHaveBeenCalledWith("/logo.png");
+  });
+
+  it("handles a key changing type from Y.Text to Uint8Array", async () => {
+    const project = mockProject();
+    const files = yfiles();
+    const oldText = addFile(files, "/asset", "text content");
+    const sync = syncYMapToTypstProject({
+      project: project as any,
+      files,
+    });
+    await sync.ready;
+    project.setText.mockClear();
+    project.setBinary.mockClear();
+
+    const bytes = addBinary(files, "/asset", [9, 9, 9]);
+    await sync.flush();
+    expect(project.setBinary).toHaveBeenCalledWith("/asset", bytes);
+
+    // The old Y.Text should no longer be observed — edits to it must not
+    // produce setText calls.
+    project.setText.mockClear();
+    oldText.insert(0, "edit");
+    await sync.flush();
+    expect(project.setText).not.toHaveBeenCalled();
+  });
+
+  it("reports setBinary errors and continues", async () => {
+    const project = mockProject();
+    const errors: TypstYjsSyncError[] = [];
+    project.setBinary
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue(undefined);
+    const files = yfiles();
+    const sync = syncYMapToTypstProject({
+      project: project as any,
+      files,
+      onError: (event) => errors.push(event),
+    });
+    await sync.ready;
+
+    addBinary(files, "/logo.png", [1, 2, 3]);
+    await sync.flush();
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].operation).toBe("setBinary");
+    expect(errors[0].path).toBe("/logo.png");
   });
 });

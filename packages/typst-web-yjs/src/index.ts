@@ -10,7 +10,7 @@ export interface TypstYjsSync {
 
 export interface TypstYjsSyncError {
   error: unknown;
-  operation: "setText" | "setMany" | "remove";
+  operation: "setText" | "setBinary" | "setMany" | "remove";
   path?: string;
 }
 
@@ -23,7 +23,7 @@ export interface SyncYTextToTypstProjectOptions {
 
 export interface SyncYMapToTypstProjectOptions {
   project: TypstProject;
-  files: Y.Map<Y.Text>;
+  files: Y.Map<Y.Text | Uint8Array>;
   onError?: (event: TypstYjsSyncError) => void;
 }
 
@@ -108,6 +108,7 @@ export function syncYMapToTypstProject(
 ): TypstYjsSync {
   const { project, files, onError } = options;
   const dirtyPaths = new Set<string>();
+  // Binary values never mutate in place, they're replaced via Y.Map.set.
   const textObservers = new Map<
     string,
     {
@@ -141,19 +142,25 @@ export function syncYMapToTypstProject(
   };
 
   const observeCurrentTexts = () => {
-    for (const [path, text] of files.entries()) {
-      observeText(path, text);
+    for (const [path, value] of files.entries()) {
+      if (value instanceof Y.Text) {
+        observeText(path, value);
+      }
     }
   };
+
+  const snapshotValue = (value: Y.Text | Uint8Array): string | Uint8Array =>
+    value instanceof Y.Text ? value.toString() : value;
 
   const sync = new SerializedSync(async () => {
     if (dirtyAll) {
       dirtyAll = false;
       dirtyPaths.clear();
       observeCurrentTexts();
-      const snapshot = Object.fromEntries(
-        Array.from(files.entries(), ([path, text]) => [path, text.toString()]),
-      );
+      const snapshot: Record<string, string | Uint8Array> = {};
+      for (const [path, value] of files.entries()) {
+        snapshot[path] = snapshotValue(value);
+      }
       if (Object.keys(snapshot).length === 0) return;
       try {
         await project.setMany(snapshot);
@@ -166,30 +173,45 @@ export function syncYMapToTypstProject(
     const paths = [...dirtyPaths];
     dirtyPaths.clear();
 
-    const changed: Record<string, string> = {};
+    const textChanges: Record<string, string> = {};
+    const binaryChanges: Record<string, Uint8Array> = {};
     const removed: string[] = [];
 
     for (const path of paths) {
-      const text = files.get(path);
-      if (text) {
-        observeText(path, text);
-        changed[path] = text.toString();
-      } else {
+      const value = files.get(path);
+      if (value === undefined) {
         removed.push(path);
+      } else if (value instanceof Y.Text) {
+        observeText(path, value);
+        textChanges[path] = value.toString();
+      } else {
+        binaryChanges[path] = value;
       }
     }
 
-    const changedEntries = Object.entries(changed);
-    if (changedEntries.length === 1) {
-      const [path, content] = changedEntries[0];
-      try {
-        await project.setText(path, content);
-      } catch (error) {
-        onError?.({ error, operation: "setText", path });
+    const textEntries = Object.entries(textChanges);
+    const binaryEntries = Object.entries(binaryChanges);
+    const totalChanges = textEntries.length + binaryEntries.length;
+
+    if (totalChanges === 1) {
+      if (textEntries.length === 1) {
+        const [path, content] = textEntries[0];
+        try {
+          await project.setText(path, content);
+        } catch (error) {
+          onError?.({ error, operation: "setText", path });
+        }
+      } else {
+        const [path, content] = binaryEntries[0];
+        try {
+          await project.setBinary(path, content);
+        } catch (error) {
+          onError?.({ error, operation: "setBinary", path });
+        }
       }
-    } else if (changedEntries.length > 1) {
+    } else if (totalChanges > 1) {
       try {
-        await project.setMany(changed);
+        await project.setMany({ ...textChanges, ...binaryChanges });
       } catch (error) {
         onError?.({ error, operation: "setMany" });
       }
@@ -206,15 +228,15 @@ export function syncYMapToTypstProject(
 
   observeCurrentTexts();
 
-  const mapObserver = (event: Y.YMapEvent<Y.Text>) => {
+  const mapObserver = (event: Y.YMapEvent<Y.Text | Uint8Array>) => {
     for (const [path, change] of event.changes.keys) {
       if (change.action === "delete" || change.action === "update") {
         unobserveText(path);
       }
 
-      const text = files.get(path);
-      if (text) {
-        observeText(path, text);
+      const value = files.get(path);
+      if (value instanceof Y.Text) {
+        observeText(path, value);
       }
 
       dirtyPaths.add(path);
