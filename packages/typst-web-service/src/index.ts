@@ -23,6 +23,11 @@ export type { FormatConfig, FormatRangeResult } from "./formatter.js";
 export { TypstFormatter } from "./formatter.js";
 export type { TypstProjectOptions } from "./project.js";
 export { TypstProject } from "./project.js";
-export type { RenderedSvgPage, TypstRendererOptions } from "./renderer.js";
+export type {
+  IncrementalCanvasOptions,
+  IncrementalCanvasRenderer,
+  RenderedSvgPage,
+  TypstRendererOptions,
+} from "./renderer.js";
 export { TypstRenderer } from "./renderer.js";
 export type { DiagnosticMessage, DiagnosticRange } from "./types.js";
