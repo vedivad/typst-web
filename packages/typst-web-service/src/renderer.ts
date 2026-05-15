@@ -1,6 +1,5 @@
 import {
   createTypstRenderer,
-  type RenderSession,
   type TypstRenderer as InnerTypstRenderer,
 } from "@myriaddreamin/typst.ts";
 
@@ -91,177 +90,6 @@ export class TypstRenderer {
   async renderSvgPages(vector: Uint8Array): Promise<RenderedSvgPage[]> {
     return splitMergedSvgPages(await this.renderSvg(vector));
   }
-
-  /**
-   * Mount an incremental canvas renderer into `root`. Each `update(vector)`
-   * call repaints the canvases in place. The win for image-heavy docs comes
-   * from the persistent WASM session: decoded image bitmaps are cached in
-   * the renderer, so subsequent paints skip the decode step. Canvas elements
-   * are recreated each update (typst.ts manages the DOM inside `root`), but
-   * canvas creation is cheap — the bottleneck the SVG path was solving was
-   * `<image>` data-URL decode, not DOM construction.
-   *
-   * Call `reset()` when switching to an unrelated document (next `update`
-   * starts fresh from the session). Call `dispose()` to free the session.
-   *
-   * Trade-off vs the SVG paths: output is rasterized — text in the rendered
-   * canvas isn't selectable, and zoom past `pixelPerPt` needs a re-render to
-   * stay crisp. typst.ts builds a `<canvas>` per page inside `root` and adds
-   * a text-semantic layer alongside it for screen readers / a11y.
-   */
-  createIncrementalCanvasRenderer(
-    root: HTMLElement,
-    options: IncrementalCanvasOptions = {},
-  ): IncrementalCanvasRenderer {
-    return new IncrementalCanvasImpl(root, () => this.getInner(), options);
-  }
-}
-
-export interface IncrementalCanvasOptions {
-  pixelPerPt?: number;
-  backgroundColor?: string;
-}
-
-export interface IncrementalCanvasRenderer {
-  /**
-   * Apply a new vector and repaint. First call seeds the session.
-   *
-   * Concurrent calls are serialized: while a repaint is in flight, the most
-   * recent `update` becomes the next paint and intermediates are dropped.
-   * All overlapping callers share one returned promise that resolves when
-   * the chain catches up — your specific vector may have been superseded.
-   */
-  update(vector: Uint8Array): Promise<void>;
-  /** Force the next `update` to re-seed (use when the doc identity changes). */
-  reset(): void;
-  /** Free the WASM session. */
-  dispose(): void;
-}
-
-// Hold a typst.ts render session alive across multiple operations. typst.ts's
-// API is scope-guarded (`runWithSession(fn)` frees the session when `fn`
-// resolves); we occupy it with a never-resolving inner promise and let
-// `close()` resolve it on dispose. The returned `session` is usable until
-// `close()` is called.
-async function openSession(
-  inner: InnerTypstRenderer,
-): Promise<{ session: RenderSession; close: () => void }> {
-  let close!: () => void;
-  const closed = new Promise<void>((resolve) => {
-    close = resolve;
-  });
-  let session!: RenderSession;
-  await new Promise<void>((ready, reject) => {
-    void inner
-      .runWithSession(async (s) => {
-        session = s;
-        ready();
-        await closed;
-      })
-      .catch(reject);
-  });
-  return { session, close };
-}
-
-// typst.ts uses 3 as its internal default (PIXEL_PER_PT). Match on standard
-// displays, bump on retina so canvases stay crisp at typical display sizes.
-function defaultPixelPerPt(): number {
-  const dpr =
-    typeof globalThis !== "undefined" &&
-    typeof (globalThis as { devicePixelRatio?: number }).devicePixelRatio === "number"
-      ? (globalThis as { devicePixelRatio: number }).devicePixelRatio
-      : 1;
-  return Math.max(dpr * 1.5, 3);
-}
-
-interface OpenedSession {
-  session: RenderSession;
-  close: () => void;
-  inner: InnerTypstRenderer;
-}
-
-class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
-  private opened: Promise<OpenedSession> | null = null;
-  private inflight: Promise<void> | null = null;
-  private pending: Uint8Array | null = null;
-  private disposed = false;
-
-  constructor(
-    private readonly root: HTMLElement,
-    private readonly getInner: () => Promise<InnerTypstRenderer>,
-    private readonly options: IncrementalCanvasOptions,
-  ) {}
-
-  private getOpened(): Promise<OpenedSession> {
-    this.opened ??= this.getInner().then(async (inner) => ({
-      ...(await openSession(inner)),
-      inner,
-    }));
-    return this.opened;
-  }
-
-  update(vector: Uint8Array): Promise<void> {
-    if (this.disposed) return Promise.resolve();
-    this.pending = vector;
-    this.inflight ??= this.drain();
-    return this.inflight;
-  }
-
-  private async drain(): Promise<void> {
-    try {
-      while (this.pending && !this.disposed) {
-        const vector = this.pending;
-        this.pending = null;
-        await this.paint(vector);
-      }
-    } finally {
-      this.inflight = null;
-    }
-  }
-
-  private async paint(vector: Uint8Array): Promise<void> {
-    const { session, inner } = await this.getOpened();
-    if (this.disposed) return;
-    session.manipulateData({ action: "reset", data: vector });
-    // typst.ts's `RenderView` constructor (view.mjs) computes
-    // `commonDiv.style.height = height * originalScale` where `height` is in
-    // backing pixels (×imageScaleFactor) and `originalScale` is CSS-per-pt
-    // — mixed units. The result is ~3× the correct CSS height. `resetLayout`
-    // (called after pixel rendering) recomputes correctly. During the gap
-    // the surrounding layout sees the root at 3× height, so the scroller's
-    // scrollbar flashes and the scroll position bounces. `visibility: hidden`
-    // hides the pixels but not the layout effect. Lock the root height
-    // (both bounds) for the duration to keep layout stable.
-    const previousHeight = this.root.offsetHeight;
-    const hadLock = previousHeight > 0;
-    if (hadLock) {
-      this.root.style.height = `${previousHeight}px`;
-    }
-    try {
-      await inner.renderToCanvas({
-        container: this.root,
-        renderSession: session,
-        pixelPerPt: this.options.pixelPerPt ?? defaultPixelPerPt(),
-        backgroundColor: this.options.backgroundColor ?? "#ffffff",
-      });
-    } finally {
-      if (hadLock) {
-        this.root.style.height = "";
-      }
-    }
-  }
-
-  reset(): void {
-    // No-op
-  }
-
-  dispose(): void {
-    if (this.disposed) return;
-    this.disposed = true;
-    // Fire-and-forget: if the session is still opening, we'll close it once
-    // it's ready; if it's already open, close immediately.
-    void this.opened?.then(({ close }) => close());
-  }
 }
 
 // Parsing must use "text/html", not "image/svg+xml": Typst's merged SVG
@@ -274,8 +102,7 @@ function splitMergedSvgPages(svg: string): RenderedSvgPage[] {
 
   const children = Array.from(root.children);
   const pageGroups = children.filter(
-    (el) =>
-      el.tagName.toLowerCase() === "g" && el.classList.contains("typst-page"),
+    (el) => el.tagName.toLowerCase() === "g" && el.classList.contains("typst-page"),
   );
   if (pageGroups.length === 0) return [];
 
