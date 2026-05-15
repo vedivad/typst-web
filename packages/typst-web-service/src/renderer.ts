@@ -223,12 +223,32 @@ class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
     const { session, inner } = await this.getOpened();
     if (this.disposed) return;
     session.manipulateData({ action: "reset", data: vector });
-    await inner.renderToCanvas({
-      container: this.root,
-      renderSession: session,
-      pixelPerPt: this.options.pixelPerPt ?? defaultPixelPerPt(),
-      backgroundColor: this.options.backgroundColor ?? "#ffffff",
-    });
+    // typst.ts's `RenderView` constructor (view.mjs) computes
+    // `commonDiv.style.height = height * originalScale` where `height` is in
+    // backing pixels (×imageScaleFactor) and `originalScale` is CSS-per-pt
+    // — mixed units. The result is ~3× the correct CSS height. `resetLayout`
+    // (called after pixel rendering) recomputes correctly. During the gap
+    // the surrounding layout sees the root at 3× height, so the scroller's
+    // scrollbar flashes and the scroll position bounces. `visibility: hidden`
+    // hides the pixels but not the layout effect. Lock the root height
+    // (both bounds) for the duration to keep layout stable.
+    const previousHeight = this.root.offsetHeight;
+    const hadLock = previousHeight > 0;
+    if (hadLock) {
+      this.root.style.height = `${previousHeight}px`;
+    }
+    try {
+      await inner.renderToCanvas({
+        container: this.root,
+        renderSession: session,
+        pixelPerPt: this.options.pixelPerPt ?? defaultPixelPerPt(),
+        backgroundColor: this.options.backgroundColor ?? "#ffffff",
+      });
+    } finally {
+      if (hadLock) {
+        this.root.style.height = "";
+      }
+    }
   }
 
   reset(): void {
