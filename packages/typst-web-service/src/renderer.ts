@@ -184,7 +184,6 @@ class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
   private opened: Promise<OpenedSession> | null = null;
   private inflight: Promise<void> | null = null;
   private pending: Uint8Array | null = null;
-  private firstUpdate = true;
   private disposed = false;
 
   constructor(
@@ -223,13 +222,7 @@ class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
   private async paint(vector: Uint8Array): Promise<void> {
     const { session, inner } = await this.getOpened();
     if (this.disposed) return;
-    // Commit firstUpdate before awaiting renderToCanvas: a `reset()` called
-    // mid-render must flip it back to true for the *next* paint instead of
-    // being clobbered when this one finishes.
-    const wasFirst = this.firstUpdate;
-    this.firstUpdate = false;
-    if (wasFirst) session.reset();
-    session.manipulateData({ action: "merge", data: vector });
+    session.manipulateData({ action: "reset", data: vector });
     await inner.renderToCanvas({
       container: this.root,
       renderSession: session,
@@ -239,7 +232,7 @@ class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
   }
 
   reset(): void {
-    this.firstUpdate = true;
+    // No-op
   }
 
   dispose(): void {
