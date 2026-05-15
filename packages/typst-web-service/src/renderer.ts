@@ -47,7 +47,11 @@ export class TypstRenderer {
   #pending: Uint8Array | null = null;
   #inflight: Promise<string> | null = null;
 
-  private constructor(worker: Worker, proxy: Comlink.Remote<RendererWorker>, wasmUrl: string) {
+  private constructor(
+    worker: Worker,
+    proxy: Comlink.Remote<RendererWorker>,
+    wasmUrl: string,
+  ) {
     this.#worker = worker;
     this.#proxy = proxy;
     this.#wasmUrl = wasmUrl;
@@ -58,15 +62,21 @@ export class TypstRenderer {
   static create(options: TypstRendererOptions = {}): TypstRenderer {
     const worker = options.worker ?? createRendererWorker();
     const proxy = Comlink.wrap<RendererWorker>(worker);
-    return new TypstRenderer(worker, proxy, options.wasmUrl ?? DEFAULT_RENDERER_WASM_URL);
+    return new TypstRenderer(
+      worker,
+      proxy,
+      options.wasmUrl ?? DEFAULT_RENDERER_WASM_URL,
+    );
   }
 
   #ensureInit(): Promise<void> {
     if (!this.#initPromise) {
-      this.#initPromise = this.#proxy.init(this.#wasmUrl).catch((err: unknown) => {
-        this.#initPromise = null;
-        throw err;
-      });
+      this.#initPromise = this.#proxy
+        .init(this.#wasmUrl)
+        .catch((err: unknown) => {
+          this.#initPromise = null;
+          throw err;
+        });
     }
     return this.#initPromise;
   }
@@ -136,7 +146,8 @@ function splitMergedSvgPages(svg: string): RenderedSvgPage[] {
 
   const children = Array.from(root.children);
   const pageGroups = children.filter(
-    (el) => el.tagName.toLowerCase() === "g" && el.classList.contains("typst-page"),
+    (el) =>
+      el.tagName.toLowerCase() === "g" && el.classList.contains("typst-page"),
   );
   if (pageGroups.length === 0) return [];
 
