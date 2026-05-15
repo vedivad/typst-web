@@ -223,25 +223,12 @@ class IncrementalCanvasImpl implements IncrementalCanvasRenderer {
     const { session, inner } = await this.getOpened();
     if (this.disposed) return;
     session.manipulateData({ action: "reset", data: vector });
-    // typst.ts wipes `innerHTML` before rebuilding and toggles
-    // `visibility: hidden` for the duration. That hides the canvases but
-    // doesn't preserve container *size* — multi-page docs collapse to
-    // height: 0 during the wipe and the surrounding layout flashes. Locking
-    // min-height to the pre-render value keeps it stable; cleared after.
-    const previousHeight = this.root.offsetHeight;
-    if (previousHeight > 0) {
-      this.root.style.minHeight = `${previousHeight}px`;
-    }
-    try {
-      await inner.renderToCanvas({
-        container: this.root,
-        renderSession: session,
-        pixelPerPt: this.options.pixelPerPt ?? defaultPixelPerPt(),
-        backgroundColor: this.options.backgroundColor ?? "#ffffff",
-      });
-    } finally {
-      this.root.style.minHeight = "";
-    }
+    await inner.renderToCanvas({
+      container: this.root,
+      renderSession: session,
+      pixelPerPt: this.options.pixelPerPt ?? defaultPixelPerPt(),
+      backgroundColor: this.options.backgroundColor ?? "#ffffff",
+    });
   }
 
   reset(): void {
