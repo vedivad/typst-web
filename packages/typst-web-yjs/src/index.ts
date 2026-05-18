@@ -21,9 +21,11 @@ export interface SyncYTextToTypstProjectOptions {
   onError?: (event: TypstYjsSyncError) => void;
 }
 
-export interface SyncYMapToTypstProjectOptions {
+export interface SyncYMapToTypstProjectOptions<
+  V extends Y.Text | Uint8Array = Y.Text | Uint8Array,
+> {
   project: TypstProject;
-  files: Y.Map<Y.Text | Uint8Array>;
+  files: Y.Map<V>;
   onError?: (event: TypstYjsSyncError) => void;
 }
 
@@ -103,8 +105,8 @@ export function syncYTextToTypstProject(
   };
 }
 
-export function syncYMapToTypstProject(
-  options: SyncYMapToTypstProjectOptions,
+export function syncYMapToTypstProject<V extends Y.Text | Uint8Array>(
+  options: SyncYMapToTypstProjectOptions<V>,
 ): TypstYjsSync {
   const { project, files, onError } = options;
   const dirtyPaths = new Set<string>();
@@ -228,7 +230,7 @@ export function syncYMapToTypstProject(
 
   observeCurrentTexts();
 
-  const mapObserver = (event: Y.YMapEvent<Y.Text | Uint8Array>) => {
+  const mapObserver = (event: Y.YMapEvent<V>) => {
     for (const [path, change] of event.changes.keys) {
       if (change.action === "delete" || change.action === "update") {
         unobserveText(path);

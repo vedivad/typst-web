@@ -401,4 +401,17 @@ describe("syncYMapToTypstProject", () => {
     expect(errors[0].operation).toBe("setBinary");
     expect(errors[0].path).toBe("/logo.png");
   });
+
+  it("accepts a narrower Y.Map<Y.Text> without a cast", async () => {
+    const project = mockProject();
+    const doc = new Y.Doc();
+    const files: Y.Map<Y.Text> = doc.getMap("files");
+    files.set("/main.typ", new Y.Text("hello"));
+
+    const sync = syncYMapToTypstProject({ project: project as any, files });
+    await sync.ready;
+
+    expect(project.setMany).toHaveBeenCalledWith({ "/main.typ": "hello" });
+    sync.dispose();
+  });
 });
