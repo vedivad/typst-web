@@ -53,34 +53,67 @@ export class CompilerWorker {
   async compile(
     entry?: string,
   ): Promise<{ diagnostics: DiagnosticMessage[]; vector?: Uint8Array }> {
-    const result = await this.#ensureCompiler().compile({
-      mainFilePath: entry ?? MAIN_FILE,
-      diagnostics: "full",
-    });
-    const diagnostics = sortDiagnosticsByFileAndRange(
-      (result.diagnostics ?? []).flatMap((d) => {
-        const m = d.range.match(/(\d+):(\d+)-(\d+):(\d+)/);
-        if (!m) {
-          console.warn(
-            `[typst-web-service] Skipping diagnostic with unrecognized range format: ${JSON.stringify(d.range)}`,
-          );
-          return [];
+    // typst.ts's `get_artifact` returns diagnostics only on a *failed* compile;
+    // on success it returns `{ result }` with no `diagnostics` field, dropping
+    // any warnings. Run `vector()` then `compile()` on the same world: the
+    // first call primes `shared_compile`, the second is a cache hit just to
+    // collect diagnostics.
+    //
+    // Order matters, `compile()` first runs `get_diag -> TDiagnosticsTask`,
+    // which invalidates the cached paged doc, so `vector()` would then return
+    // `None` (SDK falls back to `{}`).
+    type RawDiag = {
+      package: string;
+      path: string;
+      severity: string;
+      range: string;
+      message: string;
+    };
+    // typst.ts's `TypstWorld` typings widen everything to `unknown`; declare
+    // the actual wasm response shapes once here.
+    type VectorResponse =
+      | { result: Uint8Array }
+      | { hasError: boolean; diagnostics: RawDiag[] };
+    type CompileResponse = { hasError: boolean; diagnostics: RawDiag[] };
+
+    const { rawDiagnostics, vector } = await this.#ensureCompiler().runWithWorld(
+      { mainFilePath: entry ?? MAIN_FILE },
+      async (world) => {
+        // `diagnostics: "full"` keeps failures on the resolved path,
+        // `{ hasError, diagnostics }`, instead of rejecting. A reject here
+        // would be a hard internal error; propagating is the right call so
+        // `errorAsCompileResult` upstream surfaces it.
+        const v = (await world.vector({ diagnostics: "full" })) as VectorResponse;
+
+        if (!("result" in v)) {
+          // Failure path — diagnostics are inline.
+          return { rawDiagnostics: v.diagnostics, vector: undefined };
         }
-        return [
-          {
-            ...d,
-            severity: d.severity as DiagnosticMessage["severity"],
-            range: {
-              startLine: +m[1],
-              startCol: +m[2],
-              endLine: +m[3],
-              endCol: +m[4],
-            },
-          },
-        ];
+        // Success path, vector() omits diagnostics. Fetch them now that the
+        // cache is primed. Guarded so a flaky diagnostic fetch can never
+        // shadow the artifact we already have in hand.
+        let rawDiagnostics: RawDiag[] = [];
+        try {
+          const c = (await world.compile({ diagnostics: "full" })) as CompileResponse;
+          rawDiagnostics = c.diagnostics;
+        } catch (err) {
+          console.error("[typst-web-service] compile() threw after vector():", err);
+        }
+        return { rawDiagnostics, vector: v.result };
+      },
+    );
+    const diagnostics = sortDiagnosticsByFileAndRange(
+      rawDiagnostics.map((d) => {
+        const m = d.range.match(/(\d+):(\d+)-(\d+):(\d+)/);
+        return {
+          ...d,
+          severity: d.severity as DiagnosticMessage["severity"],
+          range: m
+            ? { startLine: +m[1], startCol: +m[2], endLine: +m[3], endCol: +m[4] }
+            : { startLine: 0, startCol: 0, endLine: 0, endCol: 0 },
+        };
       }),
     );
-    const vector = result.result ?? undefined;
     if (vector) {
       return Comlink.transfer({ diagnostics, vector }, [
         vector.buffer as ArrayBuffer,
