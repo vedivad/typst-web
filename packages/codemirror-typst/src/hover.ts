@@ -13,7 +13,9 @@ export interface TypstHoverOptions {
 
 /** typsten Hover -> markdown: prose is rendered as-is; code as a fenced Typst block. */
 function hoverToMarkdown(hover: Hover): string {
-  return hover.kind === "code" ? `\`\`\`typst\n${hover.value}\n\`\`\`` : hover.value;
+  return hover.kind === "code"
+    ? `\`\`\`typst\n${hover.value}\n\`\`\``
+    : hover.value;
 }
 
 /**

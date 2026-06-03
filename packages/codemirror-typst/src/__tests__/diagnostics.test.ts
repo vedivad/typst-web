@@ -52,7 +52,9 @@ describe("toCMDiagnostic", () => {
     const state = makeState("hi");
     const result = toCMDiagnostic(
       state,
-      diag({ location: { file: "main.typ", start: 99, end: 110, line: 1, column: 1 } }),
+      diag({
+        location: { file: "main.typ", start: 99, end: 110, line: 1, column: 1 },
+      }),
     );
     expect(result.from).toBeLessThanOrEqual(state.doc.length);
     expect(result.to).toBeLessThanOrEqual(state.doc.length);
@@ -62,7 +64,9 @@ describe("toCMDiagnostic", () => {
     const state = makeState("abc");
     const result = toCMDiagnostic(
       state,
-      diag({ location: { file: "main.typ", start: 1, end: 1, line: 1, column: 2 } }),
+      diag({
+        location: { file: "main.typ", start: 1, end: 1, line: 1, column: 2 },
+      }),
     );
     expect(result.to).toBe(result.from + 1);
   });

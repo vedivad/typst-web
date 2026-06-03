@@ -151,7 +151,9 @@ describe("createTypstFormatter", () => {
 
   it("calls onError when format rejects", async () => {
     const onError = vi.fn();
-    const project = mockProject(vi.fn().mockRejectedValue(new Error("wasm broke")));
+    const project = mockProject(
+      vi.fn().mockRejectedValue(new Error("wasm broke")),
+    );
     const ext = createTypstFormatter({ project, onError });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
@@ -190,7 +192,10 @@ describe("createTypstFormatter", () => {
   });
 
   it("adds Mod-s binding when formatOnSave is enabled", () => {
-    const ext = createTypstFormatter({ project: mockProject(), formatOnSave: true });
+    const ext = createTypstFormatter({
+      project: mockProject(),
+      formatOnSave: true,
+    });
     expect(getKeyRun(ext, "Mod-s")).toBeDefined();
   });
 

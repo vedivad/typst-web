@@ -2,7 +2,14 @@
   "name": "typsten",
   "version": "0.1.0",
   "description": "Typst engine (compile, render, IDE, format) as one wasm module. Built from the Rust crate in this directory via wasm-pack.",
+  "files": [
+    "pkg/typsten.js",
+    "pkg/typsten.d.ts",
+    "pkg/typsten_bg.wasm",
+    "pkg/typsten_bg.wasm.d.ts"
+  ],
   "type": "module",
+  "sideEffects": false,
   "main": "pkg/typsten.js",
   "module": "pkg/typsten.js",
   "types": "pkg/typsten.d.ts",
@@ -13,14 +20,7 @@
     },
     "./typsten_bg.wasm": "./pkg/typsten_bg.wasm"
   },
-  "files": [
-    "pkg/typsten.js",
-    "pkg/typsten.d.ts",
-    "pkg/typsten_bg.wasm",
-    "pkg/typsten_bg.wasm.d.ts"
-  ],
   "scripts": {
     "build": "wasm-pack build --target web"
-  },
-  "sideEffects": false
+  }
 }

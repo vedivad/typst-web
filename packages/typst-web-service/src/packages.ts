@@ -26,7 +26,9 @@ export function createPackageLoader(setFile: SetFile): PackageLoader {
     const spec = `@preview/${name}:${version}`;
     const res = await fetch(`${REGISTRY}/${name}-${version}.tar.gz`);
     if (!res.ok) {
-      throw new Error(`failed to fetch ${spec}: ${res.status} ${res.statusText}`);
+      throw new Error(
+        `failed to fetch ${spec}: ${res.status} ${res.statusText}`,
+      );
     }
     const tar = gunzipSync(new Uint8Array(await res.arrayBuffer()));
     for (const entry of parseTar(tar)) {

@@ -5,7 +5,12 @@ import {
   groupDiagnosticsByFile,
 } from "../diagnostics-utils.js";
 
-function diag(file: string, line: number, column: number, message: string): Diagnostic {
+function diag(
+  file: string,
+  line: number,
+  column: number,
+  message: string,
+): Diagnostic {
   return {
     severity: "warning",
     message,

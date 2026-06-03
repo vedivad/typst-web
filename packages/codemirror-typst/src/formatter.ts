@@ -80,7 +80,12 @@ async function runFormat(
 export function createTypstFormatter(
   options: TypstFormatterOptions,
 ): Extension {
-  const { project, keybinding = "Shift-Alt-f", formatOnSave, onError } = options;
+  const {
+    project,
+    keybinding = "Shift-Alt-f",
+    formatOnSave,
+    onError,
+  } = options;
   const onSaveFormatted =
     typeof formatOnSave === "function" ? formatOnSave : undefined;
 

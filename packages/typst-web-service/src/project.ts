@@ -5,7 +5,12 @@ import { cmOffsetToByte } from "./coords.js";
 import { normalizePath, type Path } from "./identifiers.js";
 import { createPackageLoader, type PackageLoader } from "./packages.js";
 import { createWorker } from "./rpc.js";
-import type { CompileResult, CompletionResponse, Hover, RenderedSvgPage } from "./types.js";
+import type {
+  CompileResult,
+  CompletionResponse,
+  Hover,
+  RenderedSvgPage,
+} from "./types.js";
 import type { TypstenWorkerApi } from "./typsten-worker.js";
 
 export interface TypstProjectCreateOptions {
@@ -45,14 +50,20 @@ function errorAsCompileResult(err: unknown): CompileResult {
   const message = err instanceof Error ? err.message : String(err);
   return {
     pages: [],
-    diagnostics: [{ severity: "error", message, hints: [], location: undefined }],
+    diagnostics: [
+      { severity: "error", message, hints: [], location: undefined },
+    ],
   };
 }
 
 function toBytes(content: ArrayBuffer | ArrayBufferView): Uint8Array {
   if (content instanceof Uint8Array) return content;
   if (ArrayBuffer.isView(content)) {
-    return new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+    return new Uint8Array(
+      content.buffer,
+      content.byteOffset,
+      content.byteLength,
+    );
   }
   return new Uint8Array(content);
 }
@@ -99,7 +110,9 @@ export class TypstProject {
   }
 
   /** Create a project: spin up the worker, init the wasm, set the entry. */
-  static async create(options: TypstProjectCreateOptions): Promise<TypstProject> {
+  static async create(
+    options: TypstProjectCreateOptions,
+  ): Promise<TypstProject> {
     const worker = options.worker ?? createWorker();
     const engine = Comlink.wrap<TypstenWorkerApi>(worker);
     // Resolve to an absolute URL on the main thread: the worker is a blob: URL,
@@ -160,11 +173,15 @@ export class TypstProject {
 
   /** Add or overwrite a text file. No-op if unchanged. */
   async setText(path: Path, content: string): Promise<void> {
-    if (await this.writeText(normalizePath(path), content)) this.scheduleCompile();
+    if (await this.writeText(normalizePath(path), content))
+      this.scheduleCompile();
   }
 
   /** Add or overwrite a binary file (retires any text tracking for the path). */
-  async setBinary(path: Path, content: ArrayBuffer | ArrayBufferView): Promise<void> {
+  async setBinary(
+    path: Path,
+    content: ArrayBuffer | ArrayBufferView,
+  ): Promise<void> {
     const p = normalizePath(path);
     await this.engine.setFile(p, toBytes(content));
     this.contentByPath.delete(p);
@@ -316,7 +333,11 @@ export class TypstProject {
   }
 
   /** Hover tooltip at a CodeMirror `offset` in `path`, using `source` as the live buffer. */
-  async hover(path: Path, source: string, offset: number): Promise<Hover | undefined> {
+  async hover(
+    path: Path,
+    source: string,
+    offset: number,
+  ): Promise<Hover | undefined> {
     const p = normalizePath(path);
     await this.writeText(p, source);
     return this.engine.hover(p, cmOffsetToByte(source, offset));
