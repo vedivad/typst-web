@@ -52,10 +52,7 @@ project.onCompile(async (result) => {
 
 // --- Editor extensions ---
 
-const highlighting = await createTypstHighlighting({
-  themes: { light: "github-light", dark: "github-dark-dimmed" },
-  theme: colorTheme,
-});
+const highlighting = createTypstHighlighting({ project, theme: colorTheme });
 const typstSetup = createTypstSetup({
   project,
   sync: "editor-driven",

@@ -6,6 +6,7 @@ export type {
   CompletionKind,
   CompletionResponse,
   Diagnostic,
+  HlSpan,
   Hover,
   HoverKind,
   Location,

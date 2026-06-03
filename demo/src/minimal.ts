@@ -20,7 +20,7 @@ project.onCompile(async (result) => {
   previewEl.innerHTML = `<div class="svg-container">${svg ?? ""}</div>`;
 });
 
-const highlighting = await createTypstHighlighting({ theme: "dark" });
+const highlighting = createTypstHighlighting({ project, theme: "dark" });
 const typstSetup = createTypstSetup({
   project,
   sync: "editor-driven",

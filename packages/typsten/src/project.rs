@@ -7,6 +7,7 @@
 use wasm_bindgen::prelude::*;
 
 use crate::compile::{CompileResult, compile_project};
+use crate::highlight::HlSpan;
 use crate::ide::{self, CompletionResponse, Hover};
 use crate::world::ProjectWorld;
 
@@ -81,6 +82,20 @@ impl Project {
     /// it is absent or has syntax errors.
     pub fn format(&self, path: &str) -> Option<String> {
         crate::format::format(&self.world, path)
+    }
+
+    /// Syntax-highlight `text`, returning the spans overlapping the byte window
+    /// `[from, to)` (the editor's visible viewport; pass `0..len` for all of it).
+    /// Stateless: it parses `text` directly, so it neither reads nor mutates the
+    /// VFS and works for the live buffer and hover snippets alike.
+    pub fn highlight(&self, text: &str, from: usize, to: usize) -> Vec<HlSpan> {
+        crate::highlight::highlight_spans(text, from, to)
+    }
+
+    /// Syntax-highlight `text` to nested `<span class="typ-*">` HTML, for static
+    /// contexts like hover tooltips. Stateless, like `highlight`.
+    pub fn highlight_html(&self, text: &str) -> String {
+        crate::highlight::highlight_html_string(text)
     }
 
     /// Render a single page of the last compiled document to SVG, or `None` if

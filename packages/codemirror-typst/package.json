@@ -32,17 +32,13 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
-    "@vedivad/typst-web-service": "workspace:^",
-    "codemirror-shiki": "^0.3.0",
-    "markdown-it": "^14.1.1",
-    "shiki": "^4"
+    "@vedivad/typst-web-service": "workspace:^"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/lint": "^6.9.5",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
-    "@types/markdown-it": "^14.1.2",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3"
   },
@@ -50,7 +46,6 @@
     "@codemirror/autocomplete": "^6",
     "@codemirror/lint": "^6",
     "@codemirror/state": "^6",
-    "@codemirror/view": "^6",
-    "shiki": "^4"
+    "@codemirror/view": "^6"
   }
 }

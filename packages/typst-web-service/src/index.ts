@@ -1,4 +1,9 @@
-export { byteToCmOffset, cmOffsetToByte } from "./coords.js";
+export {
+  byteOffsetsToCm,
+  byteToCmOffset,
+  cmOffsetsToByte,
+  cmOffsetToByte,
+} from "./coords.js";
 export type { Path } from "./identifiers.js";
 export { normalizePath } from "./identifiers.js";
 export { createPackageLoader, type PackageLoader } from "./packages.js";
@@ -14,6 +19,7 @@ export type {
   CompletionKind,
   CompletionResponse,
   Diagnostic,
+  HlSpan,
   Hover,
   HoverKind,
   Location,

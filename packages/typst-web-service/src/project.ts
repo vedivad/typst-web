@@ -1,12 +1,13 @@
 import * as Comlink from "comlink";
 import type { Remote } from "comlink";
 import { CompileScheduler } from "./compile-scheduler.js";
-import { cmOffsetToByte } from "./coords.js";
+import { byteOffsetsToCm, cmOffsetsToByte, cmOffsetToByte } from "./coords.js";
 import { normalizePath, type Path } from "./identifiers.js";
 import { createPackageLoader, type PackageLoader } from "./packages.js";
 import type {
   CompileResult,
   CompletionResponse,
+  HlSpan,
   Hover,
   RenderedSvgPage,
 } from "./types.js";
@@ -327,6 +328,43 @@ export class TypstProject {
     const p = normalizePath(path);
     await this.writeText(p, source);
     return this.engine.format(p);
+  }
+
+  /**
+   * Syntax-highlight `source` over the CodeMirror window `[from, to)` (UTF-16
+   * offsets; defaults to the whole string). Returns spans whose `from`/`to` are
+   * CodeMirror offsets, ready to drive decorations. Stateless: the worker parses
+   * `source` directly via typst-syntax, so this neither reads nor mutates the
+   * VFS and works for any text (the live buffer, a hover code snippet).
+   */
+  async highlight(
+    source: string,
+    from = 0,
+    to = source.length,
+  ): Promise<HlSpan[]> {
+    const [byteFrom, byteTo] = cmOffsetsToByte(source, [from, to]);
+    const spans = await this.engine.highlight(source, byteFrom, byteTo);
+    if (spans.length === 0) return spans;
+    // The worker speaks UTF-8 bytes; map every span boundary back to UTF-16
+    // (CodeMirror) offsets in one pass over the source. Boundaries are not
+    // monotonic (nested spans wrap inner ones), so byteOffsetsToCm sorts them.
+    const cm = byteOffsetsToCm(
+      source,
+      spans.flatMap((s) => [s.from, s.to]),
+    );
+    return spans.map((s, i) => ({
+      from: cm[i * 2],
+      to: cm[i * 2 + 1],
+      tag: s.tag,
+    }));
+  }
+
+  /**
+   * Syntax-highlight `source` to nested `<span class="typ-*">` HTML for a static
+   * context (e.g. a hover tooltip). Stateless, like `highlight`.
+   */
+  highlightHtml(source: string): Promise<string> {
+    return this.engine.highlightHtml(source);
   }
 
   /** Tear down the worker and drop all state. Idempotent. */

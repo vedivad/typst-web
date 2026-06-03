@@ -26,10 +26,9 @@ function mockProject() {
 }
 
 const stubHighlighting = {
-  extension: { kind: "shiki" },
+  extension: { kind: "highlight" },
   theme: "dark",
   setTheme: vi.fn(),
-  highlightCode: vi.fn(),
 };
 
 describe("createTypstSetup", () => {
@@ -63,13 +62,10 @@ describe("createTypstSetup", () => {
     const extensions = createTypstSetup({ project, sync: "editor-driven" });
 
     expect(extensions).toContainEqual({ kind: "hover" });
-    expect(createTypstHoverImpl).toHaveBeenCalledWith({
-      project,
-      highlightCode: undefined,
-    });
+    expect(createTypstHoverImpl).toHaveBeenCalledWith({ project });
   });
 
-  it("wires the highlighting controller into the bundle and into hover", () => {
+  it("wires the highlighting controller's extension into the bundle", () => {
     vi.mocked(createTypstHoverImpl).mockClear();
     const project = mockProject();
     const extensions = createTypstSetup({
@@ -78,11 +74,9 @@ describe("createTypstSetup", () => {
       highlighting: stubHighlighting as never,
     });
 
+    // Highlighting is an independent extension; hover no longer depends on it.
     expect(extensions).toContain(stubHighlighting.extension);
-    expect(createTypstHoverImpl).toHaveBeenCalledWith({
-      project,
-      highlightCode: stubHighlighting.highlightCode,
-    });
+    expect(createTypstHoverImpl).toHaveBeenCalledWith({ project });
   });
 });
 

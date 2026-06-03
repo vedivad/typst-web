@@ -33,7 +33,7 @@ import {
 const compiler = await TypstCompiler.create();
 const project = new TypstProject({ compiler });
 
-const highlighting = await createTypstHighlighting({ theme: "dark" });
+const highlighting = createTypstHighlighting({ project, theme: "dark" });
 const setup = createTypstSetup({
   project,
   sync: "editor-driven",
@@ -85,7 +85,7 @@ project.onCompile(async (result) => {
   }
 });
 
-const highlighting = await createTypstHighlighting({ theme: "dark" });
+const highlighting = createTypstHighlighting({ project, theme: "dark" });
 const setup = createTypstSetup({
   project,
   sync: "editor-driven",
@@ -232,14 +232,19 @@ formatter: {
 
 ## Theme switching
 
-`createTypstHighlighting` returns a controller you keep at the call site. Call
-`setTheme(view, alias)` to swap the active theme on a mounted `EditorView`:
+Highlighting is computed by the same typst-syntax engine that compiles the
+document (via the project worker), so tokens are exactly what the parser sees -
+there is no separate grammar. Tokens carry Typst's stable `typ-*` classes, themed
+by a built-in `light`/`dark` palette; the editor and hover code blocks share it.
+Override the `themes` option (or style the `typ-*` classes from your own CSS) to
+customise colors.
+
+`createTypstHighlighting` is synchronous (nothing to preload) and returns a
+controller you keep at the call site. Call `setTheme(view, alias)` to swap the
+active theme on a mounted `EditorView`:
 
 ```ts
-const highlighting = await createTypstHighlighting({
-  themes: { light: "github-light", dark: "github-dark-dimmed" },
-  theme: "light",
-});
+const highlighting = createTypstHighlighting({ project, theme: "light" });
 const setup = createTypstSetup({
   project,
   sync: "editor-driven",

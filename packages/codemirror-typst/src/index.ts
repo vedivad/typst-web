@@ -14,14 +14,10 @@ import {
 import { typstFilePath } from "./facets.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
-import type { CodeHighlighter } from "./hover-markdown.js";
+import type { TypstHighlightingController } from "./highlight.js";
+import { createTypstHighlighting } from "./highlight.js";
 import type { TypstHoverOptions } from "./hover.js";
 import { createTypstHover } from "./hover.js";
-import type {
-  TypstHighlightingController,
-  TypstHighlightingOptions,
-} from "./shiki.js";
-import { createTypstHighlighting } from "./shiki.js";
 
 export type {
   CompileListener,
@@ -30,6 +26,7 @@ export type {
   CompletionKind,
   CompletionResponse,
   Diagnostic,
+  HlSpan,
   Hover,
   HoverKind,
   Location,
@@ -41,11 +38,13 @@ export type {
 } from "@vedivad/typst-web-service";
 export { normalizePath, TypstProject } from "@vedivad/typst-web-service";
 export type {
-  CodeHighlighter,
-  TypstCompletionOptions,
-  TypstFormatterOptions,
+  TokenTheme,
   TypstHighlightingController,
   TypstHighlightingOptions,
+} from "./highlight.js";
+export type {
+  TypstCompletionOptions,
+  TypstFormatterOptions,
   TypstHoverOptions,
 };
 export {
@@ -96,7 +95,7 @@ export interface TypstSetupOptions {
  *
  * ```ts
  * const project = await TypstProject.create();
- * const highlighting = await createTypstHighlighting({ theme: "dark" });
+ * const highlighting = createTypstHighlighting({ project, theme: "dark" });
  * const setup = createTypstSetup({ project, sync: "editor-driven", highlighting });
  * const state = EditorState.create({
  *   doc,
@@ -112,7 +111,7 @@ export function createTypstSetup(options: TypstSetupOptions): Extension[] {
     ...(sync === "editor-driven" ? [createTypstCompileSync({ project })] : []),
     createTypstDiagnostics({ project }),
     autocompletion({ override: [typstCompletionSource({ project })] }),
-    createTypstHover({ project, highlightCode: highlighting?.highlightCode }),
+    createTypstHover({ project }),
     ...(formatter ? [createTypstFormatter({ project, ...formatter })] : []),
   ];
 }

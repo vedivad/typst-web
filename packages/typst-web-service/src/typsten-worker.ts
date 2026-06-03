@@ -62,6 +62,18 @@ class TypstenWorker {
   format(path: string): string | undefined {
     return this.#p().format(path);
   }
+
+  highlight(
+    text: string,
+    from: number,
+    to: number,
+  ): ReturnType<Project["highlight"]> {
+    return this.#p().highlight(text, from, to);
+  }
+
+  highlightHtml(text: string): string {
+    return this.#p().highlight_html(text);
+  }
 }
 
 /** The worker's RPC surface, for `Comlink.wrap<TypstenWorkerApi>` on the main thread. */

@@ -1,26 +1,22 @@
 import { forEachDiagnostic } from "@codemirror/lint";
 import type { Extension } from "@codemirror/state";
 import { hoverTooltip, type Tooltip } from "@codemirror/view";
-import type { Hover, TypstProject } from "@vedivad/typst-web-service";
+import type { TypstProject } from "@vedivad/typst-web-service";
 import { typstFilePath } from "./facets.js";
-import { type CodeHighlighter, renderHoverMarkdown } from "./hover-markdown.js";
 
 export interface TypstHoverOptions {
   project: TypstProject;
-  /** Optional function to syntax-highlight code blocks (code, language) -> HTML. */
-  highlightCode?: CodeHighlighter;
-}
-
-/** typsten Hover -> markdown: prose is rendered as-is; code as a fenced Typst block. */
-function hoverToMarkdown(hover: Hover): string {
-  return hover.kind === "code"
-    ? `\`\`\`typst\n${hover.value}\n\`\`\``
-    : hover.value;
 }
 
 /**
  * Create a CM6 hover tooltip extension backed by a TypstProject. The editor's
  * current buffer is synced to the engine VFS as part of the request.
+ *
+ * typsten's `Hover` (from `typst-ide`) is one of two plain shapes: a `code`
+ * snippet (a Typst signature/value) or a `text` sentence. The code snippet is
+ * syntax-highlighted via the same typst-syntax engine as the editor, so it
+ * shares the `typ-*` token palette; the text is plain (not markdown - that was
+ * a tinymist-era artifact) and rendered verbatim.
  */
 export function createTypstHover(options: TypstHoverOptions): Extension {
   return hoverTooltip(async (view, pos): Promise<Tooltip | null> => {
@@ -36,18 +32,20 @@ export function createTypstHover(options: TypstHoverOptions): Extension {
 
     try {
       const result = await options.project.hover(path, source, pos);
-      if (!result) return null;
-      const markdown = hoverToMarkdown(result);
-      if (!markdown.trim()) return null;
+      if (!result || !result.value.trim()) return null;
+      // Highlight a code snippet up front (async); prose is set as plain text.
+      const codeHtml =
+        result.kind === "code"
+          ? `<pre class="cm-typst-hover-code">${await options.project.highlightHtml(result.value)}</pre>`
+          : undefined;
       return {
         pos,
         above: true,
         create() {
           const dom = document.createElement("div");
           dom.className = "cm-typst-hover";
-          dom.innerHTML = renderHoverMarkdown(markdown, options.highlightCode);
-          dom.style.maxHeight = "26rem";
-          dom.style.overflow = "auto";
+          if (codeHtml !== undefined) dom.innerHTML = codeHtml;
+          else dom.textContent = result.value;
           return { dom };
         },
       };
