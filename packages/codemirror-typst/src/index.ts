@@ -70,8 +70,8 @@ export type { DiagnosticsPluginOptions } from "./diagnostics-plugin.js";
 
 export interface TypstSetupOptions {
   /**
-   * Project that owns the VFS. Construct one with `await TypstProject.create({
-   * wasmUrl })` and share it across editors that should see the same files.
+   * Project that owns the VFS. Construct one with `await TypstProject.create()`
+   * and share it across editors that should see the same files.
    * Subscribe to compile results with `project.onCompile(listener)`.
    */
   project: TypstProject;
@@ -95,7 +95,7 @@ export interface TypstSetupOptions {
  * formatter. The editor's file path is read from the `typstFilePath` facet.
  *
  * ```ts
- * const project = await TypstProject.create({ wasmUrl });
+ * const project = await TypstProject.create();
  * const highlighting = await createTypstHighlighting({ theme: "dark" });
  * const setup = createTypstSetup({ project, sync: "editor-driven", highlighting });
  * const state = EditorState.create({

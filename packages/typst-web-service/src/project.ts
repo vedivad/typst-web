@@ -13,13 +13,6 @@ import type {
 import type { TypstenWorkerApi } from "./typsten-worker.js";
 
 export interface TypstProjectCreateOptions {
-  /**
-   * URL of the typsten `*_bg.wasm`. Optional: defaults to the wasm shipped next
-   * to this package's `dist/`, self-resolved via `import.meta.url`, so consumers
-   * normally need not provide it. Pass an explicit URL (e.g. a Vite `?url`
-   * import) only to override where the engine is loaded from.
-   */
-  wasmUrl?: string;
   /** Default entry file path. Default: "/main.typ". */
   entry?: string;
   /** Auto-compile scheduling after VFS mutations. */
@@ -29,8 +22,6 @@ export interface TypstProjectCreateOptions {
    * to skip the network entirely (imports then resolve only from pushed files).
    */
   packages?: boolean;
-  /** Provide your own Worker (e.g. for a bundler that needs an explicit entry). */
-  worker?: Worker;
 }
 
 export interface AutoCompileOptions {
@@ -73,7 +64,7 @@ function toBytes(content: ArrayBuffer | ArrayBufferView): Uint8Array {
  * to the worker, fetches `@preview` packages on demand, and compiles or renders
  * against the current state.
  *
- *   const project = await TypstProject.create({ wasmUrl });
+ *   const project = await TypstProject.create();
  *   await project.setMany({ "/main.typ": "..." });
  *   const { pages } = await project.compile();
  *   const svg = await project.renderPage(0);
@@ -110,19 +101,15 @@ export class TypstProject {
 
   /** Create a project: spin up the worker, init the wasm, set the entry. */
   static async create(
-    options: TypstProjectCreateOptions,
+    options: TypstProjectCreateOptions = {},
   ): Promise<TypstProject> {
     const worker = new Worker(new URL("./typsten-worker.js", import.meta.url), {
       type: "module",
     });
     const engine = Comlink.wrap<TypstenWorkerApi>(worker);
-    // Resolve to an absolute URL on the main thread: the worker is a blob: URL,
-    // so a relative path (e.g. Vite's `/@fs/...`) would not resolve there. With
-    // no explicit URL, fall back to the wasm shipped next to dist/index.js,
-    // resolved against this module's own URL.
-    const wasmUrl = options.wasmUrl
-      ? new URL(options.wasmUrl, globalThis.location?.href).href
-      : new URL("./typsten_bg.wasm", import.meta.url).href;
+    // Load the wasm shipped next to this module (dist/), resolved via
+    // import.meta.url - the consumer's bundler emits and rewrites the asset.
+    const wasmUrl = new URL("./typsten_bg.wasm", import.meta.url).href;
     await engine.init(wasmUrl);
     const project = new TypstProject(engine, worker, options);
     await engine.setEntry(project._entry);
