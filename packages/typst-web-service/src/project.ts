@@ -4,7 +4,6 @@ import { CompileScheduler } from "./compile-scheduler.js";
 import { cmOffsetToByte } from "./coords.js";
 import { normalizePath, type Path } from "./identifiers.js";
 import { createPackageLoader, type PackageLoader } from "./packages.js";
-import { createWorker } from "./rpc.js";
 import type {
   CompileResult,
   CompletionResponse,
@@ -113,7 +112,9 @@ export class TypstProject {
   static async create(
     options: TypstProjectCreateOptions,
   ): Promise<TypstProject> {
-    const worker = options.worker ?? createWorker();
+    const worker = new Worker(new URL("./typsten-worker.js", import.meta.url), {
+      type: "module",
+    });
     const engine = Comlink.wrap<TypstenWorkerApi>(worker);
     // Resolve to an absolute URL on the main thread: the worker is a blob: URL,
     // so a relative path (e.g. Vite's `/@fs/...`) would not resolve there. With
