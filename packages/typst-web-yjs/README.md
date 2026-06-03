@@ -72,9 +72,7 @@ sync.dispose(); // remove Y.js observers
 the project:
 
 ```ts
-const project = new TypstProject({
-  compiler,
-  analyzer,
+const project = await TypstProject.create({
   autoCompile: { debounceMs: 500, maxWaitMs: 2000 },
 });
 ```

@@ -1,11 +1,10 @@
 This package bundles code from the following projects:
 
 ================================================================================
-@myriaddreamin/typst.ts
-@myriaddreamin/typst-ts-web-compiler
+Typst (https://github.com/typst/typst)
 ================================================================================
 
-Copyright 2023-2025 Myriad-Dreamin
+Copyright The Typst Project Developers
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

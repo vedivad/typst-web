@@ -1,14 +1,14 @@
 # typst-web
 
-Typst editor components for the web - CodeMirror 6 extensions with compilation, LSP analysis, formatting, and live preview.
+Typst editor components for the web - CodeMirror 6 extensions with compilation, autocompletion, hover, formatting, syntax highlighting, and live preview, all from a single Typst engine compiled to WebAssembly.
 
 ## Packages
 
-| Package                                                              | Install                                  | Purpose                                                     |
-| -------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| [`@vedivad/codemirror-typst`](packages/codemirror-typst/README.md)   | `npm install @vedivad/codemirror-typst`  | CodeMirror 6 editor integration - most users start here     |
-| [`@vedivad/typst-web-service`](packages/typst-web-service/README.md) | `npm install @vedivad/typst-web-service` | Editor-agnostic services (compile, render, format, analyze) |
-| [`@vedivad/typst-web-yjs`](packages/typst-web-yjs/README.md)         | `npm install @vedivad/typst-web-yjs yjs` | Optional Y.js adapters for collaborative Typst projects     |
+| Package                                                              | Install                                  | Purpose                                                       |
+| -------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| [`@vedivad/codemirror-typst`](packages/codemirror-typst/README.md)   | `npm install @vedivad/codemirror-typst`  | CodeMirror 6 editor integration - most users start here      |
+| [`@vedivad/typst-web-service`](packages/typst-web-service/README.md) | `npm install @vedivad/typst-web-service` | Editor-agnostic engine (compile, render, format, IDE)        |
+| [`@vedivad/typst-web-yjs`](packages/typst-web-yjs/README.md)         | `npm install @vedivad/typst-web-yjs yjs` | Optional Y.js adapters for collaborative Typst projects      |
 
 `@vedivad/codemirror-typst` re-exports everything from `@vedivad/typst-web-service`, so you only need one dependency.
 
@@ -18,28 +18,27 @@ Typst editor components for the web - CodeMirror 6 extensions with compilation, 
 import { basicSetup, EditorView } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import {
-  createTypstExtensions,
-  editorSync,
-  TypstCompiler,
+  createTypstHighlighting,
+  createTypstSetup,
   TypstProject,
 } from "@vedivad/codemirror-typst";
 
-const project = new TypstProject({ compiler: await TypstCompiler.create() });
-const extensions = await createTypstExtensions({
-  project,
-  sync: editorSync(),
-});
+const project = await TypstProject.create();
+await project.setText("/main.typ", "= Hello, Typst!");
+
+const highlighting = createTypstHighlighting({ project, theme: "dark" });
+const setup = createTypstSetup({ project, sync: "editor-driven", highlighting });
 
 new EditorView({
   parent: document.querySelector("#app")!,
   state: EditorState.create({
-    doc: "= Hello, Typst!",
-    extensions: [basicSetup, ...extensions],
+    doc: project.getText("/main.typ") ?? "",
+    extensions: [basicSetup, ...setup],
   }),
 });
 ```
 
-See the [`@vedivad/codemirror-typst` README](packages/codemirror-typst/README.md) for preview, LSP, formatting, and multi-file setups.
+See the [`@vedivad/codemirror-typst` README](packages/codemirror-typst/README.md) for preview, formatting, theming, and multi-file setups.
 
 ## Demo
 
@@ -57,7 +56,7 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 | Command        | Description                                                                         |
 | -------------- | ----------------------------------------------------------------------------------- |
 | `just install` | Install dependencies                                                                |
-| `just build`   | Build both packages                                                                 |
+| `just build`   | Build the packages (the engine wasm builds via `bun run build:wasm`)                |
 | `just test`    | Run tests with [Vitest](https://vitest.dev)                                         |
 | `just format`  | Format with [Oxc Formatter (oxfmt)](https://oxc.rs/docs/guide/usage/formatter.html) |
 | `just lint`    | Lint with [Oxlint](https://oxc.rs/docs/guide/usage/linter.html)                     |
@@ -67,4 +66,4 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 
 MIT - see `LICENSE`.
 
-This project bundles `@myriaddreamin/typst.ts` and `@myriaddreamin/typst-ts-web-compiler`, licensed under Apache-2.0. See `THIRD_PARTY_LICENSES`.
+This project compiles the [Typst](https://github.com/typst/typst) engine (and `typstyle`, plus embedded fonts) to WebAssembly; those upstream projects carry their own licenses. See `THIRD_PARTY_LICENSES`.

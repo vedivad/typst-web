@@ -1,14 +1,8 @@
 # @vedivad/typst-web-service
 
-Editor-agnostic Typst services for the web - compile, render, analyze, and
-format via WASM.
+Editor-agnostic Typst engine for the web: compile, render, format, autocomplete, hover, and syntax-highlight, all from a single Typst engine compiled to WebAssembly and run in a Web Worker.
 
-Four independent classes. Import only what you need.
-
-`TypstCompiler.create()` and `TypstAnalyzer.create()` are async because they
-initialize worker-backed WASM services up front. `TypstRenderer.create()` and
-`TypstFormatter.create()` are sync wrappers; their WASM work is awaited by
-methods like `renderSvgPages()` and `format()`.
+Everything goes through one class, `TypstProject`. It owns an in-memory file system, mirrors your files into the worker, schedules compiles, and forwards engine queries.
 
 ## Install
 
@@ -16,98 +10,87 @@ methods like `renderSvgPages()` and `format()`.
 npm install @vedivad/typst-web-service
 ```
 
-> Most users should install `@vedivad/codemirror-typst` instead, which re-exports everything from this package and adds CodeMirror 6 integration.
+> Most users should install `@vedivad/codemirror-typst` instead, which re-exports everything here and adds CodeMirror 6 integration.
 
-## Compilation
+## Prerequisites
+
+A bundler with WebAssembly support (e.g. [Vite](https://vite.dev) with [`vite-plugin-wasm`](https://github.com/nicolo-ribaudo/vite-plugin-wasm)). The engine wasm ships inside this package and is loaded into a worker at runtime; there are no separate binaries to wire up.
+
+## Compile and render
 
 ```ts
-import { TypstCompiler, TypstRenderer } from "@vedivad/typst-web-service";
+import { TypstProject } from "@vedivad/typst-web-service";
 
-const compiler = await TypstCompiler.create();
-const renderer = TypstRenderer.create();
+const project = await TypstProject.create();
 
-// Populate the VFS, then compile
-await compiler.setText("/main.typ", "= Hello, Typst");
-const firstResult = await compiler.compile();
-if (firstResult.vector) {
-  const pages = await renderer.renderSvgPages(firstResult.vector);
-  document.querySelector("#preview")!.innerHTML = pages
-    .map((page) => `<div class="page">${page.svg}</div>`)
-    .join("");
-}
-
-// firstResult.diagnostics are returned in deterministic order
-// (path, start position, end position, message)
-
-// Multi-file
-await compiler.setMany({
-  "/main.typ": '#import "template.typ": greet\n#greet("World")',
+await project.setMany({
+  "/main.typ": '#import "/template.typ": greet\n#greet("World")',
   "/template.typ": "#let greet(name) = [Hello, #name!]",
 });
-const multiFileResult = await compiler.compile();
 
-// PDF export - operates on the same VFS state
-const pdf = await compiler.compilePdf();
-const blob = new Blob([pdf.slice()], { type: "application/pdf" });
+const result = await project.compile();
+// result.diagnostics: errors/warnings (deterministic order)
+// result.pages: per-page dimensions (compile lays out; SVG is rendered on demand)
 
-compiler.destroy();
+const pages = await project.renderedPages(0, result.pages.length);
+document.querySelector("#preview")!.innerHTML = pages
+  .map((page) => `<div class="page">${page.svg}</div>`)
+  .join("");
+
+// Export the last compile to PDF
+const pdf = await project.exportPdf();
+if (pdf) {
+  const blob = new Blob([pdf.slice()], { type: "application/pdf" });
+}
+
+project.destroy();
 ```
 
-## Formatting
-
-Requires a bundler that supports WASM imports (e.g. Vite + `vite-plugin-wasm`).
+`compile()` returns the fresh result and also fires `onCompile` listeners; subscribe for reactive updates:
 
 ```ts
-import { TypstFormatter } from "@vedivad/typst-web-service";
-
-const formatter = TypstFormatter.create({ tab_spaces: 2, max_width: 80 });
-const formatted = await formatter.format(source);
-const rangeResult = await formatter.formatRange(source, start, end);
-```
-
-Config options ([typstyle docs](https://github.com/typstyle-rs/typstyle)):
-
-| Option                    | Type      | Default | Description                         |
-| ------------------------- | --------- | ------- | ----------------------------------- |
-| `tab_spaces`              | `number`  | `2`     | Spaces per indentation level        |
-| `max_width`               | `number`  | `80`    | Maximum line width                  |
-| `blank_lines_upper_bound` | `number`  | --      | Max consecutive blank lines         |
-| `collapse_markup_spaces`  | `boolean` | --      | Collapse whitespace in markup       |
-| `reorder_import_items`    | `boolean` | --      | Sort import items alphabetically    |
-| `wrap_text`               | `boolean` | --      | Wrap text to fit within `max_width` |
-
-## Completion and hover with tinymist
-
-`TypstAnalyzer` runs a [tinymist](https://github.com/Myriad-Dreamin/tinymist) language server in a Web Worker. The `wasmUrl` option must point to the `tinymist_bg.wasm` binary from the `tinymist-web` package.
-
-```ts
-import { TypstAnalyzer } from "@vedivad/typst-web-service";
-import tinymistWasmUrl from "tinymist-web/pkg/tinymist_bg.wasm?url";
-
-const analyzer = await TypstAnalyzer.create({ wasmUrl: tinymistWasmUrl });
-
-await analyzer.didChange("untitled:project/main.typ", source);
-const completions = await analyzer.completion(
-  "untitled:project/main.typ",
-  source,
-  { line, character },
-);
-const hover = await analyzer.hover("untitled:project/main.typ", source, {
-  line,
-  character,
+const unsubscribe = project.onCompile((result) => {
+  /* result.pages, result.diagnostics */
 });
-
-analyzer.destroy();
 ```
 
-## Service classes
+Rendering is on demand so a viewer can virtualize: `renderPage(index)` returns one page's SVG, `renderedPages(start, end)` returns `{ index, width, height, svg }` for a range.
 
-| Class            | Runs on     | WASM loading            | Purpose                                                    |
-| ---------------- | ----------- | ----------------------- | ---------------------------------------------------------- |
-| `TypstCompiler`  | Web Worker  | CDN (automatic)         | `compile()` -> diagnostics + vector, `compilePdf()` -> PDF |
-| `TypstRenderer`  | Main thread | CDN (automatic)         | `renderSvg(vector)` or `renderSvgPages(vector)`            |
-| `TypstFormatter` | Main thread | Bundler (static import) | `format(source)`, `formatRange(source, start, end)`        |
-| `TypstAnalyzer`  | Web Worker  | User-provided `wasmUrl` | Completion + hover via tinymist                            |
+## Compile scheduling
+
+VFS mutations (`setText`, `setMany`, `setBinary`, `remove`, `clear`, entry change) auto-schedule a debounced compile. Configure it per project; call `compile()` to flush immediately.
+
+```ts
+const project = await TypstProject.create({
+  entry: "/main.typ", // default compile entry (default: "/main.typ")
+  autoCompile: { debounceMs: 300, maxWaitMs: 2000 },
+});
+```
+
+| Option                   | Default | Behavior                                                                            |
+| ------------------------ | ------- | ----------------------------------------------------------------------------------- |
+| `autoCompile.debounceMs` | `0`     | Coalesce a burst of mutations into one compile, firing once they pause.             |
+| `autoCompile.maxWaitMs`  | `0`     | Force a compile at least this often during sustained mutation. Needs `debounceMs`>0. |
+
+`@preview` packages are fetched over HTTP on demand: when a source imports `@preview/...`, the referenced package is downloaded and pushed into the VFS before the compile runs. Sources with no such imports never hit the network.
+
+## Editor intelligence
+
+Completions, hover, formatting, and highlighting come from the engine's own `typst-ide` and `typst-syntax`; there is no separate language server. The IDE methods take the live editor buffer (`source`) so they work whether or not the project's VFS is already current. Offsets are CodeMirror (UTF-16) positions.
+
+```ts
+const completions = await project.completion("/main.typ", source, offset);
+const hover = await project.hover("/main.typ", source, offset);
+const formatted = await project.format("/main.typ", source);
+
+// Syntax highlighting: spans for a viewport, or ready HTML for a snippet.
+const spans = await project.highlight(source, viewportFrom, viewportTo);
+const html = await project.highlightHtml(codeSnippet);
+```
+
+## Offsets
+
+The engine speaks UTF-8 byte offsets; editors speak UTF-16. `cmOffsetToByte` and `byteToCmOffset` convert a single position; the project's own methods accept and return CodeMirror offsets, so you only need these if you work with raw engine offsets directly.
 
 ## License
 

@@ -103,6 +103,7 @@ export class TypstProject {
       type: "module",
     });
     const engine = Comlink.wrap<TypstenWorkerApi>(worker);
+
     const wasmUrl = new URL("./typsten_bg.wasm", import.meta.url).href;
     await engine.init(wasmUrl);
 
