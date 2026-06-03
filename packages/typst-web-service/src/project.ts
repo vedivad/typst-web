@@ -177,15 +177,6 @@ export class TypstProject {
     this.scheduleCompile();
   }
 
-  /** Add or overwrite a JSON data file. */
-  async setJson(path: Path, value: unknown): Promise<void> {
-    const p = normalizePath(path);
-    await this.engine.setFile(p, encoder.encode(JSON.stringify(value)));
-    this.contentByPath.delete(p);
-    this.trackedPaths.add(p);
-    this.scheduleCompile();
-  }
-
   /** Batch set files. Strings dedup against tracked content; binaries always write. */
   async setMany(files: Record<Path, string | Uint8Array>): Promise<void> {
     let changed = false;

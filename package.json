@@ -21,7 +21,6 @@
     "oxfmt": "^0.42.0",
     "oxlint": "^1.66.0",
     "typescript": "^5.9.3",
-    "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.6"
   }
 }

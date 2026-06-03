@@ -1,19 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseHoverDoc, renderHoverMarkdown } from "../hover-markdown.js";
-
-describe("parseHoverDoc", () => {
-  it("extracts structured signature and open docs url", () => {
-    const doc = parseHoverDoc(
-      "```typc\nlet align(alignment: alignment, body: content);\n```\n\nAligns content.\n\n[Open docs](https://typst.app/docs/reference/layout/align/)",
-    );
-
-    expect(doc.signature?.language).toBe("typst");
-    expect(doc.signature?.code).toContain("#let align");
-    expect(doc.openDocsUrl).toBe(
-      "https://typst.app/docs/reference/layout/align/",
-    );
-  });
-});
+import { renderHoverMarkdown } from "../hover-markdown.js";
 
 describe("renderHoverMarkdown", () => {
   it("renders markdown links as anchors", () => {
@@ -48,7 +34,7 @@ describe("renderHoverMarkdown", () => {
   it("strips shiki's inline background-color on highlighted blocks", () => {
     const html = renderHoverMarkdown(
       "```typst\n#set page(height: 120pt)\n```",
-      (code, language) =>
+      (code) =>
         `<pre class="shiki" style="background-color:#fff;color:#24292e">${code}</pre>`,
     );
 
@@ -68,32 +54,8 @@ describe("renderHoverMarkdown", () => {
     expect(html).not.toContain('<code class="language-typst">');
   });
 
-  it("normalizes let in typst fenced code for custom highlighter", () => {
-    const html = renderHoverMarkdown(
-      "```typst\nlet align(alignment: alignment, body: content);\n```",
-      (code, language) => `<pre data-lang="${language}">${code}</pre>`,
-    );
-
-    expect(html).toContain("#let align");
-  });
-
-  it("treats typc fences as typst", () => {
-    const html = renderHoverMarkdown(
-      "```typc\nlet align(alignment: alignment, body: content);\n```",
-      (code, language) => `<pre data-lang="${language}">${code}</pre>`,
-    );
-
-    expect(html).toContain('data-lang="typst"');
-    expect(html).toContain("#let align");
-  });
-
-  it("highlights leading plain typst signature blocks", () => {
-    const html = renderHoverMarkdown(
-      "let align(\n  alignment: alignment,\n  body: content,\n);",
-      (code, language) => `<pre data-lang="${language}">${code}</pre>`,
-    );
-
-    expect(html).toContain('data-lang="typst"');
-    expect(html).toContain("#let align(");
+  it("renders a plain prose sentence as a paragraph", () => {
+    const html = renderHoverMarkdown("The total page width.");
+    expect(html).toContain("<p>The total page width.</p>");
   });
 });

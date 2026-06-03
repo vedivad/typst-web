@@ -62,10 +62,6 @@ class TypstenWorker {
   format(path: string): string | undefined {
     return this.#p().format(path);
   }
-
-  version(): string {
-    return this.#p().version();
-  }
 }
 
 /** The worker's RPC surface, for `Comlink.wrap<TypstenWorkerApi>` on the main thread. */

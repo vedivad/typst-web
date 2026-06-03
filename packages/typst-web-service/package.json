@@ -30,7 +30,6 @@
     "nanotar": "^0.2.0"
   },
   "devDependencies": {
-    "esbuild": "^0.27.3",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3",
     "typsten": "workspace:*"
