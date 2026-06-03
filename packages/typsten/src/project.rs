@@ -51,6 +51,13 @@ impl Project {
         self.world.set_entry(path);
     }
 
+    /// Register a font file (TTF/OTF, or a TTC collection) for compilation,
+    /// extending the embedded default fonts with families the engine does not
+    /// bundle (e.g. CJK or a custom font).
+    pub fn add_font(&mut self, bytes: Vec<u8>) {
+        self.world.add_font(bytes);
+    }
+
     /// Compile the project, returning the rendered SVG and typed diagnostics.
     ///
     /// A query, so `&self`: the `Source` cache it touches is interior-mutable.

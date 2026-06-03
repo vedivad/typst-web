@@ -217,6 +217,17 @@ export class TypstProject {
   }
 
   /**
+   * Register a font (TTF/OTF, or TTC collection bytes) so compilation can use
+   * it, then recompile. The engine bundles default body, math, and monospace
+   * fonts; use this to add families it does not ship (e.g. CJK or a custom
+   * font). Fonts persist for the project's lifetime.
+   */
+  async addFont(bytes: Uint8Array): Promise<void> {
+    await this.engine.addFont(bytes);
+    this.scheduleCompile();
+  }
+
+  /**
    * Subscribe to compile results. Late subscribers get `lastResult` synchronously.
    * Returns an unsubscribe function.
    */

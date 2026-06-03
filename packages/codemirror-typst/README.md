@@ -14,6 +14,8 @@ npm install @vedivad/codemirror-typst
 
 A bundler with WebAssembly support - e.g. [Vite](https://vite.dev) with [`vite-plugin-wasm`](https://github.com/nicolo-ribaudo/vite-plugin-wasm). The Typst engine wasm ships inside `@vedivad/typst-web-service` and is loaded into a Web Worker at runtime; there are no separate compiler, renderer, analyzer, or formatter binaries to wire up. Completions, hover, diagnostics, and formatting all come from that one engine.
 
+The engine bundles default body, math, and monospace fonts, so documents render out of the box. Add families it does not ship (e.g. CJK or a brand font) with `project.addFont(bytes)` (see the [service README](../typst-web-service/README.md#fonts)).
+
 ## Quick start
 
 ```ts

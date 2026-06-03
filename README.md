@@ -4,11 +4,11 @@ Typst editor components for the web - CodeMirror 6 extensions with compilation, 
 
 ## Packages
 
-| Package                                                              | Install                                  | Purpose                                                       |
-| -------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
-| [`@vedivad/codemirror-typst`](packages/codemirror-typst/README.md)   | `npm install @vedivad/codemirror-typst`  | CodeMirror 6 editor integration - most users start here      |
-| [`@vedivad/typst-web-service`](packages/typst-web-service/README.md) | `npm install @vedivad/typst-web-service` | Editor-agnostic engine (compile, render, format, IDE)        |
-| [`@vedivad/typst-web-yjs`](packages/typst-web-yjs/README.md)         | `npm install @vedivad/typst-web-yjs yjs` | Optional Y.js adapters for collaborative Typst projects      |
+| Package                                                              | Install                                  | Purpose                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------- |
+| [`@vedivad/codemirror-typst`](packages/codemirror-typst/README.md)   | `npm install @vedivad/codemirror-typst`  | CodeMirror 6 editor integration - most users start here |
+| [`@vedivad/typst-web-service`](packages/typst-web-service/README.md) | `npm install @vedivad/typst-web-service` | Editor-agnostic engine (compile, render, format, IDE)   |
+| [`@vedivad/typst-web-yjs`](packages/typst-web-yjs/README.md)         | `npm install @vedivad/typst-web-yjs yjs` | Optional Y.js adapters for collaborative Typst projects |
 
 `@vedivad/codemirror-typst` re-exports everything from `@vedivad/typst-web-service`, so you only need one dependency.
 
@@ -27,7 +27,11 @@ const project = await TypstProject.create();
 await project.setText("/main.typ", "= Hello, Typst!");
 
 const highlighting = createTypstHighlighting({ project, theme: "dark" });
-const setup = createTypstSetup({ project, sync: "editor-driven", highlighting });
+const setup = createTypstSetup({
+  project,
+  sync: "editor-driven",
+  highlighting,
+});
 
 new EditorView({
   parent: document.querySelector("#app")!,
@@ -66,4 +70,4 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 
 MIT - see `LICENSE`.
 
-This project compiles the [Typst](https://github.com/typst/typst) engine (and `typstyle`, plus embedded fonts) to WebAssembly; those upstream projects carry their own licenses. See `THIRD_PARTY_LICENSES`.
+This project compiles the [Typst](https://github.com/typst/typst) engine (and `typstyle`) to WebAssembly under Apache-2.0, with the default fonts from `typst-assets` embedded under their own permissive licenses. See `THIRD_PARTY_LICENSES`.

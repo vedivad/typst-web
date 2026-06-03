@@ -27,7 +27,7 @@ pub struct ProjectWorld {
     vfs: Vfs,
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
-    /// Index-aligned with `book`; `font(i)` returns `fonts[i]`.
+    /// Index-aligned with `book`; `font(i)` returns `fonts[i]`. Grown by `add_font`.
     fonts: Vec<Font>,
     main: FileId,
     /// Parsed sources, cached and incrementally updated so `comemo` reuses
@@ -91,6 +91,17 @@ impl ProjectWorld {
             }
         }
         self.vfs.set(id, Bytes::new(bytes));
+    }
+
+    /// Register every face in a font file (TTF/OTF, or a TTC collection),
+    /// extending the embedded default fonts. Use it to add families the engine
+    /// does not bundle - other scripts (CJK), or a brand/custom font.
+    pub fn add_font(&mut self, bytes: Vec<u8>) {
+        let buffer = Bytes::new(bytes);
+        for font in Font::iter(buffer) {
+            self.book.push(font.info().clone());
+            self.fonts.push(font);
+        }
     }
 
     /// Remove a file from the VFS and its cached `Source`.

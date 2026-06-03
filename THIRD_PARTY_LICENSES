@@ -17,3 +17,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+The engine wasm also embeds the default fonts from `typst-assets` (Libertinus
+Serif, New Computer Modern, DejaVu Sans Mono, and PDF base-14 fonts), each under
+its own permissive license (OFL, GUST, Bitstream Vera, BSD). See the upstream
+notice: https://github.com/typst/typst-assets/blob/main/NOTICE

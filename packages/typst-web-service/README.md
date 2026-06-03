@@ -56,6 +56,17 @@ const unsubscribe = project.onCompile((result) => {
 
 Rendering is on demand so a viewer can virtualize: `renderPage(index)` returns one page's SVG, `renderedPages(start, end)` returns `{ index, width, height, svg }` for a range.
 
+## Fonts
+
+The engine bundles Typst's default fonts (Libertinus Serif for body, New Computer Modern Math for equations, DejaVu Sans Mono for raw/code), so documents render out of the box. Use `addFont` to register families the engine does not ship - other scripts (CJK), or a brand/custom font:
+
+```ts
+const bytes = new Uint8Array(await (await fetch(fontUrl)).arrayBuffer());
+await project.addFont(bytes); // TTF/OTF or a TTC collection
+```
+
+Added fonts persist for the project's lifetime, and adding one schedules a recompile.
+
 ## Compile scheduling
 
 VFS mutations (`setText`, `setMany`, `setBinary`, `remove`, `clear`, entry change) auto-schedule a debounced compile. Configure it per project; call `compile()` to flush immediately.
@@ -67,9 +78,9 @@ const project = await TypstProject.create({
 });
 ```
 
-| Option                   | Default | Behavior                                                                            |
-| ------------------------ | ------- | ----------------------------------------------------------------------------------- |
-| `autoCompile.debounceMs` | `0`     | Coalesce a burst of mutations into one compile, firing once they pause.             |
+| Option                   | Default | Behavior                                                                             |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------ |
+| `autoCompile.debounceMs` | `0`     | Coalesce a burst of mutations into one compile, firing once they pause.              |
 | `autoCompile.maxWaitMs`  | `0`     | Force a compile at least this often during sustained mutation. Needs `debounceMs`>0. |
 
 `@preview` packages are fetched over HTTP on demand: when a source imports `@preview/...`, the referenced package is downloaded and pushed into the VFS before the compile runs. Sources with no such imports never hit the network.
