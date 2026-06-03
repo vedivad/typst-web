@@ -20,7 +20,10 @@ export default defineConfig({
   },
   format: ["esm"],
   splitting: false,
-  dts: { entry: "src/index.ts" },
+  // Inline typsten's generated DTOs into our .d.ts. typsten is a build-time
+  // workspace dep that consumers never install, so an external `from "typsten"`
+  // reference would resolve to `any` downstream.
+  dts: { entry: "src/index.ts", resolve: ["typsten"] },
   sourcemap: true,
   clean: true,
   // Ship the engine wasm next to the outputs so `TypstProject.create()` can
