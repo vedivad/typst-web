@@ -295,6 +295,14 @@ export class TypstProject {
     });
   }
 
+  /**
+   * Export the last compile as a PDF, or `undefined` if nothing has compiled
+   * yet. The bytes are a fresh `Uint8Array` (copied across the worker boundary).
+   */
+  exportPdf(): Promise<Uint8Array | undefined> {
+    return this.engine.exportPdf();
+  }
+
   /** Completions at a CodeMirror `offset` in `path`, using `source` as the live buffer. */
   async completion(
     path: Path,

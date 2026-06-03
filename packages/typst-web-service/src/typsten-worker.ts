@@ -43,6 +43,10 @@ class TypstenWorker {
     return this.#p().render_pages(start, end);
   }
 
+  exportPdf(): Uint8Array | undefined {
+    return this.#p().export_pdf();
+  }
+
   complete(
     path: string,
     cursor: number,

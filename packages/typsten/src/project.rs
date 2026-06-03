@@ -94,4 +94,10 @@ impl Project {
     pub fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
         self.world.render_pages(start, end)
     }
+
+    /// Export the last compiled document as PDF bytes, or `None` if nothing has
+    /// compiled yet. Returns a `Uint8Array` across the boundary.
+    pub fn export_pdf(&self) -> Option<Vec<u8>> {
+        self.world.export_pdf()
+    }
 }

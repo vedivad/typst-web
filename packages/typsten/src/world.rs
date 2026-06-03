@@ -17,6 +17,7 @@ use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
+use typst_pdf::{PdfOptions, pdf};
 use typst_svg::svg;
 
 use crate::vfs::{Vfs, file_id};
@@ -137,6 +138,15 @@ impl ProjectWorld {
             return Vec::new();
         }
         document.pages[start..end].iter().map(svg).collect()
+    }
+
+    /// Export the cached document to PDF bytes, or `None` if there is no cached
+    /// document or PDF generation fails. PDF export of an already-laid-out
+    /// document effectively never fails, so an error is mapped to `None` rather
+    /// than surfaced - keeping the boundary as simple as `render_page`.
+    pub(crate) fn export_pdf(&self) -> Option<Vec<u8>> {
+        let document = self.document.lock();
+        pdf(document.as_ref()?, &PdfOptions::default()).ok()
     }
 
     /// `(full_parses, incremental_edits)` since construction. Test instrumentation.
@@ -300,5 +310,14 @@ mod tests {
             1,
             "no extra full parse on recompile"
         );
+    }
+
+    #[test]
+    fn exports_pdf_after_compile() {
+        let world = project("= Hello");
+        assert!(world.export_pdf().is_none(), "no document before compile");
+        compile_project(&world);
+        let pdf = world.export_pdf().expect("pdf bytes after compile");
+        assert!(pdf.starts_with(b"%PDF-"), "valid PDF header");
     }
 }

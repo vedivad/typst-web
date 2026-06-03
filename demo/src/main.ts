@@ -20,6 +20,7 @@ const tabsEl = document.getElementById("tabs")!;
 const themeToggleBtn = document.getElementById(
   "theme-toggle",
 ) as HTMLButtonElement;
+const exportPdfBtn = document.getElementById("export-pdf") as HTMLButtonElement;
 
 // --- Typst engine (one wasm) ---
 
@@ -156,6 +157,23 @@ themeToggleBtn.addEventListener("click", () => {
   colorTheme = colorTheme === "dark" ? "light" : "dark";
   if (activeView) {
     syncTheme(activeView);
+  }
+});
+
+exportPdfBtn.addEventListener("click", async () => {
+  exportPdfBtn.disabled = true;
+  try {
+    const pdf = await project.exportPdf();
+    if (!pdf) return; // nothing compiled yet
+    const blob = new Blob([new Uint8Array(pdf)], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = activeFile.replace(/^\//, "").replace(/\.typ$/, ".pdf");
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    exportPdfBtn.disabled = false;
   }
 });
 
