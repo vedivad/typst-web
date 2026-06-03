@@ -268,11 +268,6 @@ export class TypstProject {
     return this.engine.renderPage(index);
   }
 
-  /** Render pages `[start, end)` of the last compile to SVG (end clamped). */
-  renderPages(start: number, end: number): Promise<string[]> {
-    return this.engine.renderPages(start, end);
-  }
-
   /**
    * Render pages `[start, end)` as `RenderedSvgPage`s (index + dims + svg),
    * zipping the SVG strings with the page metadata from the last compile.

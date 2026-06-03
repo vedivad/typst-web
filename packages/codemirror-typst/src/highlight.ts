@@ -216,40 +216,36 @@ export function createTypstHighlighting(
 ): TypstHighlightingController {
   const { project, debounceMs = 30 } = options;
   const themes = options.themes ?? DEFAULT_THEMES;
+
+  // Resolve an alias to its theme extension, throwing if it is not a known alias.
+  const themeFor = (alias: string): Extension => {
+    const palette = themes[alias];
+    if (!palette) {
+      throw new Error(
+        `theme alias "${alias}" not found in themes (${Object.keys(themes).join(", ")})`,
+      );
+    }
+    return EditorView.theme(palette, { dark: alias === "dark" });
+  };
+
   let currentAlias =
     options.theme ?? (themes.dark ? "dark" : Object.keys(themes)[0]);
-  if (!themes[currentAlias]) {
-    throw new Error(
-      `theme alias "${currentAlias}" not found in themes (${Object.keys(themes).join(", ")})`,
-    );
-  }
-
-  const themeFor = (alias: string): Extension =>
-    EditorView.theme(themes[alias], { dark: alias === "dark" });
-
   const themeCompartment = new Compartment();
+  const initialTheme = themeFor(currentAlias); // validates the initial alias
 
   const plugin = ViewPlugin.define(
     (view) => new HighlightPlugin(view, project, debounceMs),
   );
 
   return {
-    extension: [
-      highlightField,
-      plugin,
-      themeCompartment.of(themeFor(currentAlias)),
-    ],
+    extension: [highlightField, plugin, themeCompartment.of(initialTheme)],
     get theme() {
       return currentAlias;
     },
     setTheme(view, alias) {
-      if (!themes[alias]) {
-        throw new Error(
-          `theme alias "${alias}" not found in themes (${Object.keys(themes).join(", ")})`,
-        );
-      }
+      const theme = themeFor(alias); // validates before mutating state
       currentAlias = alias;
-      view.dispatch({ effects: themeCompartment.reconfigure(themeFor(alias)) });
+      view.dispatch({ effects: themeCompartment.reconfigure(theme) });
     },
   };
 }

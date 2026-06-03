@@ -12,7 +12,7 @@ import { Facet } from "@codemirror/state";
  *
  * Completion, hover, and the compiler plugin read this facet to know which
  * project path the editor's buffer corresponds to. Switching tabs via
- * `view.setState(states[path])` carries the new path along with the state —
+ * `view.setState(states[path])` carries the new path along with the state -
  * no external closures or thunks needed.
  *
  * If unset, defaults to `/main.typ`. Latest-wins when multiple values are

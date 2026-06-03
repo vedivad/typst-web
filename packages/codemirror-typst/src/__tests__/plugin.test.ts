@@ -65,7 +65,7 @@ describe("CompileSyncPlugin", () => {
     expect(project.setText).toHaveBeenCalledWith("/main.typ", "hello");
   });
 
-  it("does not call compile() directly — the project auto-schedules", () => {
+  it("does not call compile() directly - the project auto-schedules", () => {
     const project = mockProject();
     const view = mockView("x");
     new CompileSyncPlugin({ project: project as any }, view);

@@ -1,6 +1,6 @@
 # @vedivad/codemirror-typst
 
-CodeMirror 6 extensions for Typst — syntax highlighting, diagnostics, autocompletion, hover tooltips, formatting, and live preview.
+CodeMirror 6 extensions for Typst - syntax highlighting, diagnostics, autocompletion, hover tooltips, formatting, and live preview.
 
 Re-exports everything from `@vedivad/typst-web-service`, so you only need this one dependency.
 
@@ -18,7 +18,7 @@ npm install @vedivad/codemirror-typst
 
 ## Minimal editor
 
-Syntax highlighting, diagnostics, and compilation — no URLs or config.
+Syntax highlighting, diagnostics, and compilation - no URLs or config.
 
 ```ts
 import { EditorView, basicSetup } from "codemirror";
@@ -96,7 +96,7 @@ const setup = createTypstSetup({
 
 ## Multi-file editor
 
-Attach the `typstFilePath` facet per-editor so each `EditorState` carries its own path. Switching tabs with `view.setState(states[path])` propagates the new path automatically — no external closure or `activeFile` variable required.
+Attach the `typstFilePath` facet per-editor so each `EditorState` carries its own path. Switching tabs with `view.setState(states[path])` propagates the new path automatically - no external closure or `activeFile` variable required.
 
 ```ts
 import { createTypstSetup, typstFilePath } from "@vedivad/codemirror-typst";
@@ -195,10 +195,10 @@ const project = new TypstProject({
 
 | Option                   | Default | Behavior                                                                                                  |
 | ------------------------ | ------- | --------------------------------------------------------------------------------------------------------- |
-| `autoCompile.debounceMs` | `0`     | Debounce — resets on every mutation, fires once mutations pause. `0` means compile on the next macrotask. |
-| `autoCompile.maxWaitMs`  | `0`     | Max-wait cap — forces a compile during sustained mutation bursts. Only effective when `debounceMs` > 0.   |
+| `autoCompile.debounceMs` | `0`     | Debounce - resets on every mutation, fires once mutations pause. `0` means compile on the next macrotask. |
+| `autoCompile.maxWaitMs`  | `0`     | Max-wait cap - forces a compile during sustained mutation bursts. Only effective when `debounceMs` > 0.   |
 
-Call `await project.compile()` directly when you need a specific result right now — it flushes any pending scheduled compile and returns the fresh result.
+Call `await project.compile()` directly when you need a specific result right now - it flushes any pending scheduled compile and returns the fresh result.
 
 **Initial compile:** VFS mutations schedule a debounced compile, so the first render is delayed by `debounceMs`. To show initial output immediately (e.g. after `setMany`), call `compile()` explicitly:
 
@@ -255,7 +255,7 @@ highlighting.setTheme(view, "dark");
 ```
 
 The same controller may be shared across multiple views, but CodeMirror
-compartments are reconfigured per view — call `setTheme` once per mounted view.
+compartments are reconfigured per view - call `setTheme` once per mounted view.
 Use separate highlighting controllers for views that should have different
 active themes.
 
@@ -265,11 +265,11 @@ active themes.
 pieces directly when you want custom CodeMirror lint/autocomplete UI, external
 sync, or only part of the Typst feature set:
 
-- **`createTypstCompileSync({ project })`** — mirrors the editor's content into the project's VFS on mount and on every change. The project auto-schedules the compile. Use on its own if you render diagnostics yourself.
-- **`createTypstDiagnostics({ project })`** — subscribes to `project.onCompile` and dispatches diagnostics for the active file. Use on its own if you drive VFS updates outside the editor (e.g. a Yjs observer).
-- **`typstCompletionSource({ project })`** — plugs Typst completions into your own `autocompletion(...)` setup.
-- **`createTypstHover({ project })`** — adds Typst hover tooltips, optionally using a custom code highlighter.
-- **`createTypstFormatter({ instance })`** — adds Typst formatting keybindings and optional format-on-save.
+- **`createTypstCompileSync({ project })`** - mirrors the editor's content into the project's VFS on mount and on every change. The project auto-schedules the compile. Use on its own if you render diagnostics yourself.
+- **`createTypstDiagnostics({ project })`** - subscribes to `project.onCompile` and dispatches diagnostics for the active file. Use on its own if you drive VFS updates outside the editor (e.g. a Yjs observer).
+- **`typstCompletionSource({ project })`** - plugs Typst completions into your own `autocompletion(...)` setup.
+- **`createTypstHover({ project })`** - adds Typst hover tooltips, optionally using a custom code highlighter.
+- **`createTypstFormatter({ instance })`** - adds Typst formatting keybindings and optional format-on-save.
 
 ```ts
 import {

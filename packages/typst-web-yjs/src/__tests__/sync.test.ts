@@ -69,7 +69,6 @@ describe("syncYTextToTypstProject", () => {
     });
 
     await sync.ready;
-    expect(sync.kind).toBe("external");
     expect(project.setText).toHaveBeenCalledWith("/main.typ", "hello");
   });
 
@@ -170,7 +169,6 @@ describe("syncYMapToTypstProject", () => {
     });
 
     await sync.ready;
-    expect(sync.kind).toBe("external");
     expect(project.setMany).toHaveBeenCalledWith({
       "/main.typ": "main",
       "/util.typ": "util",
@@ -372,7 +370,7 @@ describe("syncYMapToTypstProject", () => {
     await sync.flush();
     expect(project.setBinary).toHaveBeenCalledWith("/asset", bytes);
 
-    // The old Y.Text should no longer be observed — edits to it must not
+    // The old Y.Text should no longer be observed - edits to it must not
     // produce setText calls.
     project.setText.mockClear();
     oldText.insert(0, "edit");

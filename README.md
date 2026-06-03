@@ -1,12 +1,12 @@
 # typst-web
 
-Typst editor components for the web — CodeMirror 6 extensions with compilation, LSP analysis, formatting, and live preview.
+Typst editor components for the web - CodeMirror 6 extensions with compilation, LSP analysis, formatting, and live preview.
 
 ## Packages
 
 | Package                                                              | Install                                  | Purpose                                                     |
 | -------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
-| [`@vedivad/codemirror-typst`](packages/codemirror-typst/README.md)   | `npm install @vedivad/codemirror-typst`  | CodeMirror 6 editor integration — most users start here     |
+| [`@vedivad/codemirror-typst`](packages/codemirror-typst/README.md)   | `npm install @vedivad/codemirror-typst`  | CodeMirror 6 editor integration - most users start here     |
 | [`@vedivad/typst-web-service`](packages/typst-web-service/README.md) | `npm install @vedivad/typst-web-service` | Editor-agnostic services (compile, render, format, analyze) |
 | [`@vedivad/typst-web-yjs`](packages/typst-web-yjs/README.md)         | `npm install @vedivad/typst-web-yjs yjs` | Optional Y.js adapters for collaborative Typst projects     |
 
@@ -51,8 +51,8 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 
 ## Development
 
-- [Bun](https://bun.sh) — workspace scripts and package builds
-- [just](https://just.systems) — task runner (optional; `bun run` scripts also work)
+- [Bun](https://bun.sh) - workspace scripts and package builds
+- [just](https://just.systems) - task runner (optional; `bun run` scripts also work)
 
 | Command        | Description                                                                         |
 | -------------- | ----------------------------------------------------------------------------------- |
@@ -65,6 +65,6 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 
 ## License
 
-MIT — see `LICENSE`.
+MIT - see `LICENSE`.
 
 This project bundles `@myriaddreamin/typst.ts` and `@myriaddreamin/typst-ts-web-compiler`, licensed under Apache-2.0. See `THIRD_PARTY_LICENSES`.

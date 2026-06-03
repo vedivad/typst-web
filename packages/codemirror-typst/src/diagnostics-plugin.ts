@@ -16,7 +16,7 @@ export interface DiagnosticsPluginOptions {
 /**
  * Subscribes to `project.onCompile` and dispatches CodeMirror diagnostics for
  * the current file (as read from the `typstFilePath` facet). Does not push
- * content into the project or trigger compiles — pair with `CompileSyncPlugin`
+ * content into the project or trigger compiles - pair with `CompileSyncPlugin`
  * or drive compiles yourself.
  */
 export class DiagnosticsPlugin {

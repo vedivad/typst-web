@@ -1,6 +1,6 @@
 # @vedivad/typst-web-service
 
-Editor-agnostic Typst services for the web — compile, render, analyze, and
+Editor-agnostic Typst services for the web - compile, render, analyze, and
 format via WASM.
 
 Four independent classes. Import only what you need.
@@ -46,7 +46,7 @@ await compiler.setMany({
 });
 const multiFileResult = await compiler.compile();
 
-// PDF export — operates on the same VFS state
+// PDF export - operates on the same VFS state
 const pdf = await compiler.compilePdf();
 const blob = new Blob([pdf.slice()], { type: "application/pdf" });
 

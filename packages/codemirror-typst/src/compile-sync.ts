@@ -12,7 +12,7 @@ export interface CompileSyncOptions {
  * path change. The project auto-schedules a (debounced) compile in response to
  * the resulting `setText`; subscribe to results via `project.onCompile(...)`.
  *
- * Configure compile debounce/throttle on the project, not here — a single
+ * Configure compile debounce/throttle on the project, not here - a single
  * project may have multiple editors and all of them share one compile schedule.
  */
 export class CompileSyncPlugin {
@@ -34,7 +34,7 @@ export class CompileSyncPlugin {
     }
   }
 
-  destroy(): void {}
+  destroy(): void { }
 
   private push(view: EditorView): void {
     this.options.project

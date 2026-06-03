@@ -48,7 +48,7 @@ describe("CompileScheduler", () => {
     scheduler.schedule(cb);
     expect(cb).not.toHaveBeenCalled();
 
-    // Keep rescheduling every 50ms — without maxWait this would never fire.
+    // Keep rescheduling every 50ms - without maxWait this would never fire.
     for (let i = 0; i < 10; i++) {
       vi.advanceTimersByTime(50);
       scheduler.schedule(cb);
@@ -71,7 +71,7 @@ describe("CompileScheduler", () => {
     vi.advanceTimersByTime(500);
     expect(cb).toHaveBeenCalledTimes(1);
 
-    // Idle gap of 2.5s — well past maxWaitMs.
+    // Idle gap of 2.5s - well past maxWaitMs.
     vi.advanceTimersByTime(2500);
 
     // New burst should get a full debounce, NOT fire instantly.
