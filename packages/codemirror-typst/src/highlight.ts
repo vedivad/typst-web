@@ -2,7 +2,7 @@
 // typsten worker. The editor asks `project.highlight(source, from, to)` for the
 // visible range; the worker parses with the real engine and returns spans tagged
 // with Typst's stable `typ-*` classes (the same `Tag::css_class()` classes the
-// official typst.app editor uses) - no TextMate grammar to drift from the parser.
+// official typst.app editor uses), no TextMate grammar to drift from the parser.
 //
 // Pattern (mirrors diagnostics-plugin.ts): a ViewPlugin requests highlights and
 // dispatches a StateEffect; a StateField holds the DecorationSet and maps it

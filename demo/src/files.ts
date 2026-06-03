@@ -7,7 +7,7 @@ export const files: Record<string, string> = {
 = Introduction
 
 This demo shows *multi-file* compilation.
-Each file is editable - switch tabs to see both.
+Each file is editable, switch tabs to see both.
 `,
   "/template.typ": `\
 #let greet(name) = {

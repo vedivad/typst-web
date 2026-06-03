@@ -211,10 +211,10 @@ const extensions = [
 
 ## Styling
 
-The package ships no CSS - token colors come from the highlighting palette (or your overrides of the `typ-*` classes), and the hover tooltip exposes two stable hooks:
+The package ships no CSS, token colors come from the highlighting palette (or your overrides of the `typ-*` classes), and the hover tooltip exposes two stable hooks:
 
-- `.cm-typst-hover` - the tooltip container (a plain-text description, or a code value).
-- `.cm-typst-hover-code` - the syntax-highlighted code block inside a code hover.
+- `.cm-typst-hover`, the tooltip container (a plain-text description, or a code value).
+- `.cm-typst-hover-code`, the syntax-highlighted code block inside a code hover.
 
 Set `max-height` / `overflow` on `.cm-typst-hover` yourself if you want long tooltips to scroll.
 

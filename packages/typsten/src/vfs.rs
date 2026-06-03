@@ -2,7 +2,7 @@
 //!
 //! Per the core architecture principle, Rust does no I/O itself: this map is the
 //! whole backing store, fed from JS. It is also the deliberate seam where a lazy,
-//! JSPI-backed fetch backend slots in at Milestone 6 - hence a newtype with a
+//! JSPI-backed fetch backend slots in at Milestone 6, hence a newtype with a
 //! method surface rather than a bare `HashMap`, so callers never depend on the
 //! storage being a map. No `trait` yet: there is only one implementation today,
 //! and the M6 backend is async against Typst's synchronous `World::file`, so a

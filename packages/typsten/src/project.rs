@@ -1,7 +1,7 @@
 //! The wasm-bindgen facade.
 //!
 //! Convention: this is the ONLY module with `#[wasm_bindgen]`, and it holds no
-//! logic - every method delegates in one line to the host-testable core. That
+//! logic, every method delegates in one line to the host-testable core. That
 //! keeps all real logic on the host target where `cargo test` can reach it.
 
 use wasm_bindgen::prelude::*;
@@ -112,7 +112,7 @@ impl Project {
     }
 
     /// Render pages `[start, end)` of the last compiled document to SVG (`end`
-    /// clamped to the page count) - the on-demand path for a virtualized viewer.
+    /// clamped to the page count), the on-demand path for a virtualized viewer.
     pub fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
         self.world.render_pages(start, end)
     }

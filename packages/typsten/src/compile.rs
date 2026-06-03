@@ -19,7 +19,7 @@ pub struct PageInfo {
 }
 
 /// The outcome of a compile: one `PageInfo` per renderable page plus all
-/// diagnostics. `compile()` does NOT render - pages are drawn on demand via
+/// diagnostics. `compile()` does NOT render, pages are drawn on demand via
 /// `render_page`/`render_pages`. Diagnostics are DATA, not errors (the editor
 /// needs them on success as warnings and on failure as errors), so this is never
 /// a `Result` and never throws. On a failed compile the `pages` describe the
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn fatal_error_reports_located_diagnostic() {
-        // `nope` is an unknown variable - a fatal error with a span on the name.
+        // `nope` is an unknown variable, a fatal error with a span on the name.
         let world = world_with("main.typ", &[("main.typ", "ok\n#nope")]);
         let result = compile_project(&world);
 

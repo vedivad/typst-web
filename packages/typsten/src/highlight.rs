@@ -40,7 +40,7 @@ pub fn highlight_spans(text: &str, from: usize, to: usize) -> Vec<HlSpan> {
 /// Highlight a Typst code snippet to nested `<span class="typ-*">` HTML
 /// (html-escaped, wrapped in `<code>`) via Typst's own `highlight_html`. For
 /// static views like hover tooltips, whose `Code` value is a code-mode snippet
-/// (a value repr, a length conversion) - so it is parsed in code mode, not
+/// (a value repr, a length conversion), so it is parsed in code mode, not
 /// markup mode, or numbers/operators would not be tokenized and render plain.
 pub fn highlight_html_string(text: &str) -> String {
     highlight_html(&parse_code(text))
@@ -123,7 +123,7 @@ mod tests {
     #[test]
     fn html_highlights_a_code_snippet() {
         // A hover `Code` value is code-mode Typst (e.g. a length conversion or a
-        // value repr), so numbers/operators must be tokenized - not left plain.
+        // value repr), so numbers/operators must be tokenized, not left plain.
         let html = highlight_html_string("12pt = 4.23mm");
         assert!(html.starts_with("<code>"), "{html}");
         assert!(html.contains("class=\"typ-num\""), "{html}");

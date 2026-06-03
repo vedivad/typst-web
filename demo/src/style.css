@@ -339,7 +339,7 @@ header p {
   white-space: pre-wrap;
 }
 
-/* The code block is the whole tooltip, so it gets no inner box - just colored
+/* The code block is the whole tooltip, so it gets no inner box, just colored
    monospace text (tokens are themed by the editor's typ-* palette). */
 .cm-typst-hover-code {
   margin: 0;

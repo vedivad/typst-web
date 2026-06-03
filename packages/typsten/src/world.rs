@@ -34,7 +34,7 @@ pub struct ProjectWorld {
     /// eval/layout across compiles (stable content hash) and edits reparse only
     /// the changed region. Bounded by the live VFS: an entry is added on first
     /// read and dropped by `remove_file` (or a non-UTF-8 overwrite), so it never
-    /// outlives its file - no separate eviction needed. `Mutex` because
+    /// outlives its file, no separate eviction needed. `Mutex` because
     /// `World::source` is `&self`.
     sources: Mutex<HashMap<FileId, Source>>,
     /// The last successfully compiled document, so pages can be rendered on
@@ -154,7 +154,7 @@ impl ProjectWorld {
     /// Export the cached document to PDF bytes, or `None` if there is no cached
     /// document or PDF generation fails. PDF export of an already-laid-out
     /// document effectively never fails, so an error is mapped to `None` rather
-    /// than surfaced - keeping the boundary as simple as `render_page`.
+    /// than surfaced, keeping the boundary as simple as `render_page`.
     pub fn export_pdf(&self) -> Option<Vec<u8>> {
         let document = self.document.lock();
         pdf(document.as_ref()?, &PdfOptions::default()).ok()

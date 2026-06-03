@@ -9,7 +9,7 @@ try {
   wasmSrc = createRequire(import.meta.url).resolve("typsten/typsten_bg.wasm");
 } catch {
   throw new Error(
-    "typsten wasm not found - build it first: `bun run --cwd packages/typsten build`",
+    "typsten wasm not found, build it first: `bun run --cwd packages/typsten build`",
   );
 }
 

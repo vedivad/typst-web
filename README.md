@@ -1,6 +1,6 @@
 # typst-web
 
-Typst editor components for the web - CodeMirror 6 extensions with compilation, autocompletion, hover, formatting, syntax highlighting, and live preview, all from a single Typst engine compiled to WebAssembly.
+Typst editor components for the web, CodeMirror 6 extensions with compilation, autocompletion, hover, formatting, syntax highlighting, and live preview, all from a single Typst engine compiled to WebAssembly.
 
 ## Packages
 
@@ -54,8 +54,8 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 
 ## Development
 
-- [Bun](https://bun.sh) - workspace scripts and package builds
-- [just](https://just.systems) - task runner (optional; `bun run` scripts also work)
+- [Bun](https://bun.sh), workspace scripts and package builds
+- [just](https://just.systems), task runner (optional; `bun run` scripts also work)
 
 | Command        | Description                                                                         |
 | -------------- | ----------------------------------------------------------------------------------- |
@@ -68,6 +68,6 @@ Two pages: `/` (tabbed multi-file editor with preview, diagnostics, completion/h
 
 ## License
 
-MIT - see `LICENSE`.
+MIT, see `LICENSE`.
 
 This project compiles the [Typst](https://github.com/typst/typst) engine (and `typstyle`) to WebAssembly under Apache-2.0, with the default fonts from `typst-assets` embedded under their own permissive licenses. See `THIRD_PARTY_LICENSES`.
