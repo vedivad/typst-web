@@ -74,7 +74,6 @@ Export the last compile to PDF with `await project.exportPdf()` (returns `Uint8A
 const project = await TypstProject.create({
   entry: "/main.typ", // default compile entry (default: "/main.typ")
   autoCompile: { debounceMs: 300, maxWaitMs: 2000 },
-  packages: true, // fetch @preview packages over HTTP on demand (default: true)
 });
 
 await project.setMany({ "/main.typ": "...", "/logo.svg": bytes });

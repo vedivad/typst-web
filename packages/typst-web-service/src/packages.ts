@@ -13,9 +13,9 @@ export type SetFile = (path: string, bytes: Uint8Array) => Promise<void> | void;
 export interface PackageLoader {
   /**
    * Ensure every `@preview` package referenced in `sources` is present in the
-   * VFS. Returns `true` if anything new was fetched (so the caller can recompile).
+   * VFS, fetching any that are missing.
    */
-  ensure(sources: Iterable<string>): Promise<boolean>;
+  ensure(sources: Iterable<string>): Promise<void>;
 }
 
 export function createPackageLoader(setFile: SetFile): PackageLoader {
@@ -47,11 +47,9 @@ export function createPackageLoader(setFile: SetFile): PackageLoader {
         }
       }
 
-      let fetched = false;
       const tasks: Promise<void>[] = [];
       for (const spec of specs) {
         if (loaded.has(spec)) continue;
-        fetched = true;
         let task = inflight.get(spec);
         if (!task) {
           const [name, version] = spec.split(":");
@@ -67,7 +65,6 @@ export function createPackageLoader(setFile: SetFile): PackageLoader {
         tasks.push(task);
       }
       await Promise.all(tasks);
-      return fetched;
     },
   };
 }

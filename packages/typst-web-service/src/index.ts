@@ -1,12 +1,6 @@
-export {
-  byteOffsetsToCm,
-  byteToCmOffset,
-  cmOffsetsToByte,
-  cmOffsetToByte,
-} from "./coords.js";
+export { byteToCmOffset, cmOffsetToByte } from "./coords.js";
 export type { Path } from "./identifiers.js";
 export { normalizePath } from "./identifiers.js";
-export { createPackageLoader, type PackageLoader } from "./packages.js";
 export type {
   AutoCompileOptions,
   CompileListener,

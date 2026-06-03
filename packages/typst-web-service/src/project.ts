@@ -18,11 +18,6 @@ export interface TypstProjectCreateOptions {
   entry?: string;
   /** Auto-compile scheduling after VFS mutations. */
   autoCompile?: AutoCompileOptions;
-  /**
-   * Fetch `@preview` packages over HTTP on demand. Default: `true`. Set `false`
-   * to skip the network entirely (imports then resolve only from pushed files).
-   */
-  packages?: boolean;
 }
 
 export interface AutoCompileOptions {
@@ -71,13 +66,15 @@ function toBytes(content: ArrayBuffer | ArrayBufferView): Uint8Array {
  *   const svg = await project.renderPage(0);
  */
 export class TypstProject {
-  /** All tracked project file paths (text + binary). Drives `clear`. */
-  private readonly trackedPaths = new Set<Path>();
-  /** Tracked text content, for dedup and `getText`. */
-  private readonly contentByPath = new Map<Path, string>();
+  /**
+   * Tracked project files: the text content for a text file, or `null` for a
+   * binary one. Drives dedup, `getText`, `files`, and `clear`. (Cached `@preview`
+   * package files live only in the worker VFS, never here.)
+   */
+  private readonly tracked = new Map<Path, string | null>();
   private readonly compileListeners = new Set<CompileListener>();
   private readonly scheduler: CompileScheduler;
-  private readonly packageLoader?: PackageLoader;
+  private readonly packageLoader: PackageLoader;
   private compileVersion = 0;
   private _lastResult: CompileResult | undefined;
   private _entry: Path;
@@ -93,11 +90,9 @@ export class TypstProject {
       debounceMs: options.autoCompile?.debounceMs,
       maxWaitMs: options.autoCompile?.maxWaitMs,
     });
-    if (options.packages !== false) {
-      this.packageLoader = createPackageLoader((path, bytes) =>
-        this.engine.setFile(path, bytes),
-      );
-    }
+    this.packageLoader = createPackageLoader((path, bytes) =>
+      this.engine.setFile(path, bytes),
+    );
   }
 
   /** Create a project: spin up the worker, init the wasm, set the entry. */
@@ -108,12 +103,12 @@ export class TypstProject {
       type: "module",
     });
     const engine = Comlink.wrap<TypstenWorkerApi>(worker);
-    // Load the wasm shipped next to this module (dist/), resolved via
-    // import.meta.url - the consumer's bundler emits and rewrites the asset.
     const wasmUrl = new URL("./typsten_bg.wasm", import.meta.url).href;
     await engine.init(wasmUrl);
+
     const project = new TypstProject(engine, worker, options);
     await engine.setEntry(project._entry);
+
     return project;
   }
 
@@ -124,13 +119,20 @@ export class TypstProject {
     });
   }
 
-  /** Write text into the VFS without scheduling a compile (dedup'd). */
-  private async writeText(p: Path, content: string): Promise<boolean> {
-    if (this.contentByPath.get(p) === content) return false;
-    await this.engine.setFile(p, encoder.encode(content));
-    this.contentByPath.set(p, content);
-    this.trackedPaths.add(p);
-    return true;
+  /**
+   * Mirror text into the VFS without scheduling a compile. Returns the in-flight
+   * write to await, or `null` if the content is unchanged (deduped to a no-op).
+   */
+  private writeText(p: Path, content: string): Promise<unknown> | null {
+    if (this.tracked.get(p) === content) return null;
+    this.tracked.set(p, content);
+    return this.engine.setFile(p, encoder.encode(content));
+  }
+
+  /** Mirror binary bytes into the VFS (always writes; binaries are not deduped). */
+  private writeBinary(p: Path, bytes: Uint8Array): Promise<unknown> {
+    this.tracked.set(p, null);
+    return this.engine.setFile(p, bytes);
   }
 
   get entry(): Path {
@@ -152,18 +154,23 @@ export class TypstProject {
 
   /** Tracked text file paths, in insertion order (fresh array). */
   get files(): Path[] {
-    return [...this.contentByPath.keys()];
+    return [...this.tracked]
+      .filter(([, content]) => content !== null)
+      .map(([path]) => path);
   }
 
-  /** Current text for a tracked file, or `undefined`. */
+  /** Current text for a tracked file, or `undefined` (binary or absent). */
   getText(path: Path): string | undefined {
-    return this.contentByPath.get(normalizePath(path));
+    return this.tracked.get(normalizePath(path)) ?? undefined;
   }
 
   /** Add or overwrite a text file. No-op if unchanged. */
   async setText(path: Path, content: string): Promise<void> {
-    if (await this.writeText(normalizePath(path), content))
+    const write = this.writeText(normalizePath(path), content);
+    if (write) {
+      await write;
       this.scheduleCompile();
+    }
   }
 
   /** Add or overwrite a binary file (retires any text tracking for the path). */
@@ -171,31 +178,22 @@ export class TypstProject {
     path: Path,
     content: ArrayBuffer | ArrayBufferView,
   ): Promise<void> {
-    const p = normalizePath(path);
-    await this.engine.setFile(p, toBytes(content));
-    this.contentByPath.delete(p);
-    this.trackedPaths.add(p);
+    await this.writeBinary(normalizePath(path), toBytes(content));
     this.scheduleCompile();
   }
 
   /** Batch set files. Strings dedup against tracked content; binaries always write. */
   async setMany(files: Record<Path, string | Uint8Array>): Promise<void> {
-    let changed = false;
     const writes: Promise<unknown>[] = [];
     for (const [path, content] of Object.entries(files)) {
       const p = normalizePath(path);
-      if (typeof content === "string") {
-        if (this.contentByPath.get(p) === content) continue;
-        writes.push(this.engine.setFile(p, encoder.encode(content)));
-        this.contentByPath.set(p, content);
-      } else {
-        writes.push(this.engine.setFile(p, content));
-        this.contentByPath.delete(p);
-      }
-      this.trackedPaths.add(p);
-      changed = true;
+      const write =
+        typeof content === "string"
+          ? this.writeText(p, content)
+          : this.writeBinary(p, content);
+      if (write) writes.push(write);
     }
-    if (!changed) return;
+    if (writes.length === 0) return;
     await Promise.all(writes);
     this.scheduleCompile();
   }
@@ -204,16 +202,16 @@ export class TypstProject {
   async remove(path: Path): Promise<void> {
     const p = normalizePath(path);
     await this.engine.remove(p);
-    this.contentByPath.delete(p);
-    this.trackedPaths.delete(p);
+    this.tracked.delete(p);
     this.scheduleCompile();
   }
 
   /** Remove all tracked project files (cached `@preview` packages are kept). */
   async clear(): Promise<void> {
-    await Promise.all([...this.trackedPaths].map((p) => this.engine.remove(p)));
-    this.contentByPath.clear();
-    this.trackedPaths.clear();
+    await Promise.all(
+      [...this.tracked.keys()].map((p) => this.engine.remove(p)),
+    );
+    this.tracked.clear();
     this.scheduleCompile();
   }
 
@@ -245,7 +243,9 @@ export class TypstProject {
     const version = ++this.compileVersion;
     let result: CompileResult;
     try {
-      await this.packageLoader?.ensure(this.contentByPath.values());
+      await this.packageLoader.ensure(
+        [...this.tracked.values()].filter((v): v is string => v !== null),
+      );
       result = await this.engine.compile();
     } catch (err) {
       result = errorAsCompileResult(err);
@@ -368,8 +368,7 @@ export class TypstProject {
     this.destroyed = true;
     this.scheduler.cancel();
     this.compileListeners.clear();
-    this.contentByPath.clear();
-    this.trackedPaths.clear();
+    this.tracked.clear();
     this._lastResult = undefined;
     this.engine[Comlink.releaseProxy]();
     this.worker.terminate();
