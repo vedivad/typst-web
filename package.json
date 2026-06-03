@@ -6,7 +6,9 @@
     "demo"
   ],
   "scripts": {
+    "build:wasm": "bun run --cwd packages/typsten build",
     "build": "bun run --cwd packages/typst-web-service build && bun run --cwd packages/typst-web-yjs build && bun run --cwd packages/codemirror-typst build",
+    "build:all": "bun run build:wasm && bun run build",
     "dev": "bun run --filter 'packages/*' dev",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
