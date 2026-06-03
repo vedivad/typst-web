@@ -3,15 +3,10 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import {
   createTypstHighlighting,
   createTypstSetup,
-  typstFilePath,
-  TypstAnalyzer,
-  TypstCompiler,
-  TypstFormatter,
   TypstProject,
-  TypstRenderer,
+  typstFilePath,
 } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
-import tinymistWasmUrl from "tinymist-web/pkg/tinymist_bg.wasm?url";
 import { updateDiagnostics } from "./diagnostics";
 import { files } from "./files";
 import { type AddFileResult, renderTabs, showNewFileInput } from "./tabs";
@@ -22,27 +17,17 @@ const diagnosticsEl = document.getElementById("diagnostics")!;
 const previewEl = document.getElementById("preview")!;
 const editorEl = document.getElementById("editor")!;
 const tabsEl = document.getElementById("tabs")!;
-const exportBtn = document.getElementById("export-pdf") as HTMLButtonElement;
 const themeToggleBtn = document.getElementById(
   "theme-toggle",
 ) as HTMLButtonElement;
 
-// --- Typst services ---
+// --- Typst engine (one wasm) ---
 
-const [formatter, compiler, renderer, analyzer] = await Promise.all([
-  TypstFormatter.create({ tab_spaces: 2, max_width: 80 }),
-  TypstCompiler.create(),
-  TypstRenderer.create(),
-  TypstAnalyzer.create({ wasmUrl: tinymistWasmUrl }),
-]);
-
-const project = new TypstProject({
-  compiler,
-  analyzer,
+const project = await TypstProject.create({
   autoCompile: { debounceMs: 100, maxWaitMs: 500 },
 });
 await project.setMany(files);
-await project.compile(); // trigger initial compile immediately, bypass auto-compile debounce
+await project.compile(); // trigger the initial compile immediately
 
 // --- Editor state ---
 
@@ -54,15 +39,14 @@ let colorTheme: "light" | "dark" = "light";
 
 project.onCompile(async (result) => {
   updateDiagnostics(diagnosticsEl, result.diagnostics);
-  if (result.vector) {
-    const pages = await renderer.renderSvgPages(result.vector);
-    previewEl.innerHTML = `<div class="svg-container">${pages
-      .map(
-        (page) =>
-          `<div class="svg-page" data-page="${page.index + 1}">${page.svg}</div>`,
-      )
-      .join("")}</div>`;
-  }
+  // Render every page (a real app would render only the visible range).
+  const pages = await project.renderedPages(0, result.pages.length);
+  previewEl.innerHTML = `<div class="svg-container">${pages
+    .map(
+      (page) =>
+        `<div class="svg-page" data-page="${page.index + 1}">${page.svg}</div>`,
+    )
+    .join("")}</div>`;
 });
 
 // --- Editor extensions ---
@@ -75,7 +59,7 @@ const typstSetup = createTypstSetup({
   project,
   sync: "editor-driven",
   highlighting,
-  formatter: { instance: formatter, formatOnSave: true },
+  formatter: { formatOnSave: true },
 });
 
 const editorTheme = new Compartment();
@@ -167,33 +151,6 @@ async function removeFile(path: string) {
     rerenderTabs();
   }
 }
-
-// --- PDF export ---
-
-exportBtn.addEventListener("click", async () => {
-  exportBtn.disabled = true;
-  exportBtn.textContent = "Exporting…";
-  try {
-    const activeDoc = (
-      activeView ? activeView.state : states[activeFile]
-    ).doc.toString();
-    await project.setText(activeFile, activeDoc);
-
-    const pdf = await project.compilePdf();
-    const blob = new Blob([pdf.slice()], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "output.pdf";
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("PDF export failed:", err);
-  } finally {
-    exportBtn.disabled = false;
-    exportBtn.textContent = "Export PDF";
-  }
-});
 
 themeToggleBtn.addEventListener("click", () => {
   colorTheme = colorTheme === "dark" ? "light" : "dark";

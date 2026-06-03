@@ -1,38 +1,28 @@
 import { EditorState } from "@codemirror/state";
-import type { TypstFormatter } from "@vedivad/typst-web-service";
 import { describe, expect, it, vi } from "vitest";
+import { typstFilePath } from "../facets.js";
 import { createTypstFormatter, diffChanges } from "../formatter.js";
 
-function mockFormatter(
-  overrides: Partial<TypstFormatter> = {},
-): TypstFormatter {
-  return {
-    format: vi.fn().mockResolvedValue("formatted"),
-    formatRange: vi.fn().mockResolvedValue({ start: 0, end: 3, text: "fmt" }),
-    ...overrides,
-  } as any;
+function mockProject(format = vi.fn().mockResolvedValue("formatted")) {
+  return { format } as any;
 }
 
-function mockView(doc: string, selFrom = 0, selTo = 0) {
+function mockState(doc: string) {
   const state = EditorState.create({ doc });
-  const dispatch = vi.fn();
   return {
-    state: {
-      ...state,
-      doc: state.doc,
-      selection: { main: { from: selFrom, to: selTo } },
-    },
-    dispatch,
-  } as any;
+    doc: state.doc,
+    facet: (f: unknown) => (f === typstFilePath ? "/main.typ" : undefined),
+  };
 }
 
-function mutableMockView(doc: string, selFrom = 0, selTo = 0) {
+function mockView(doc: string) {
+  return { state: mockState(doc), dispatch: vi.fn() } as any;
+}
+
+function mutableMockView(doc: string) {
   const dispatch = vi.fn();
   const view = {
-    state: {
-      doc: EditorState.create({ doc }).doc,
-      selection: { main: { from: selFrom, to: selTo } },
-    },
+    state: mockState(doc),
     dispatch,
     setDoc(next: string) {
       view.state.doc = EditorState.create({ doc: next }).doc;
@@ -56,7 +46,6 @@ function getKeyRun(
   ext: any,
   key: string,
 ): ((view: any) => boolean) | undefined {
-  // keymap.of returns a Facet value; walk through to find the binding
   const flat = Array.isArray(ext) ? ext.flat(Infinity) : [ext];
   for (const entry of flat) {
     if (entry?.value) {
@@ -75,114 +64,71 @@ describe("diffChanges", () => {
   });
 
   it("produces a single change for a modified middle line", () => {
-    const old = "aaa\nbbb\nccc";
-    const now = "aaa\nBBB\nccc";
-    const changes = diffChanges(old, now);
-    expect(changes).toEqual([{ from: 4, to: 7, insert: "BBB" }]);
+    expect(diffChanges("aaa\nbbb\nccc", "aaa\nBBB\nccc")).toEqual([
+      { from: 4, to: 7, insert: "BBB" },
+    ]);
   });
 
   it("handles added lines", () => {
     const old = "aaa\nccc";
     const now = "aaa\nbbb\nccc";
-    const changes = diffChanges(old, now);
-    expect(changes).toHaveLength(1);
-    // Applying the change to old should produce now
-    const result =
-      old.slice(0, changes[0].from) +
-      changes[0].insert +
-      old.slice(changes[0].to);
-    expect(result).toBe(now);
+    const [c] = diffChanges(old, now);
+    expect(old.slice(0, c.from) + c.insert + old.slice(c.to)).toBe(now);
   });
 
   it("handles removed lines", () => {
     const old = "aaa\nbbb\nccc";
     const now = "aaa\nccc";
-    const changes = diffChanges(old, now);
-    expect(changes).toHaveLength(1);
-    const result =
-      old.slice(0, changes[0].from) +
-      changes[0].insert +
-      old.slice(changes[0].to);
-    expect(result).toBe(now);
+    const [c] = diffChanges(old, now);
+    expect(old.slice(0, c.from) + c.insert + old.slice(c.to)).toBe(now);
   });
 
   it("handles change at the beginning", () => {
-    const old = "aaa\nbbb";
-    const now = "AAA\nbbb";
-    const changes = diffChanges(old, now);
-    expect(changes).toEqual([{ from: 0, to: 3, insert: "AAA" }]);
+    expect(diffChanges("aaa\nbbb", "AAA\nbbb")).toEqual([
+      { from: 0, to: 3, insert: "AAA" },
+    ]);
   });
 
   it("handles change at the end", () => {
-    const old = "aaa\nbbb";
-    const now = "aaa\nBBB";
-    const changes = diffChanges(old, now);
-    expect(changes).toEqual([{ from: 4, to: 7, insert: "BBB" }]);
-  });
-
-  it("handles complete replacement", () => {
-    const old = "aaa\nbbb";
-    const now = "xxx\nyyy";
-    const changes = diffChanges(old, now);
-    expect(changes).toHaveLength(1);
-    const result =
-      old.slice(0, changes[0].from) +
-      changes[0].insert +
-      old.slice(changes[0].to);
-    expect(result).toBe(now);
+    expect(diffChanges("aaa\nbbb", "aaa\nBBB")).toEqual([
+      { from: 4, to: 7, insert: "BBB" },
+    ]);
   });
 
   it("handles empty to non-empty", () => {
-    const changes = diffChanges("", "hello");
-    expect(changes).toHaveLength(1);
-    expect(changes[0]).toEqual({ from: 0, to: 0, insert: "hello" });
+    expect(diffChanges("", "hello")).toEqual([
+      { from: 0, to: 0, insert: "hello" },
+    ]);
   });
 
   it("handles non-empty to empty", () => {
-    const changes = diffChanges("hello", "");
-    expect(changes).toHaveLength(1);
-    expect(changes[0]).toEqual({ from: 0, to: 5, insert: "" });
+    expect(diffChanges("hello", "")).toEqual([{ from: 0, to: 5, insert: "" }]);
   });
 });
 
 describe("createTypstFormatter", () => {
-  it("calls format on the whole document when no selection", async () => {
-    const formatter = mockFormatter();
-    const ext = createTypstFormatter({ instance: formatter });
+  it("formats the whole document via the project", async () => {
+    const project = mockProject();
+    const ext = createTypstFormatter({ project });
     const run = getKeyRun(ext, "Shift-Alt-f");
     expect(run).toBeDefined();
 
-    const view = mockView("hello");
-    run!(view);
+    run!(mockView("hello"));
     await vi.waitFor(() => {
-      expect(formatter.format).toHaveBeenCalledWith("hello");
+      expect(project.format).toHaveBeenCalledWith("/main.typ", "hello");
     });
   });
 
-  it("calls formatRange when selection exists", async () => {
-    const formatter = mockFormatter();
-    const ext = createTypstFormatter({ instance: formatter });
-    const run = getKeyRun(ext, "Shift-Alt-f");
-
-    const view = mockView("hello world", 0, 5);
-    run!(view);
-    await vi.waitFor(() => {
-      expect(formatter.formatRange).toHaveBeenCalledWith("hello world", 0, 5);
-    });
-  });
-
-  it("skips full-document dispatch when the document changes before formatting resolves", async () => {
+  it("skips dispatch when the document changes before formatting resolves", async () => {
     const pending = deferred<string>();
-    const formatter = mockFormatter({
-      format: vi.fn().mockReturnValue(pending.promise),
-    });
-    const ext = createTypstFormatter({ instance: formatter });
+    const project = mockProject(vi.fn().mockReturnValue(pending.promise));
+    const ext = createTypstFormatter({ project });
     const run = getKeyRun(ext, "Shift-Alt-f");
     const view = mutableMockView("original");
 
     run!(view);
     await vi.waitFor(() => {
-      expect(formatter.format).toHaveBeenCalledWith("original");
+      expect(project.format).toHaveBeenCalledWith("/main.typ", "original");
     });
     view.setDoc("original plus typing");
     pending.resolve("formatted");
@@ -192,33 +138,21 @@ describe("createTypstFormatter", () => {
     expect(view.dispatch).not.toHaveBeenCalled();
   });
 
-  it("skips range dispatch when the document changes before formatting resolves", async () => {
-    const pending = deferred<{ start: number; end: number; text: string }>();
-    const formatter = mockFormatter({
-      formatRange: vi.fn().mockReturnValue(pending.promise),
-    });
-    const ext = createTypstFormatter({ instance: formatter });
+  it("does nothing when format returns undefined (not formattable)", async () => {
+    const project = mockProject(vi.fn().mockResolvedValue(undefined));
+    const ext = createTypstFormatter({ project });
     const run = getKeyRun(ext, "Shift-Alt-f");
-    const view = mutableMockView("hello world", 0, 5);
+    const view = mockView("x");
 
     run!(view);
-    await vi.waitFor(() => {
-      expect(formatter.formatRange).toHaveBeenCalledWith("hello world", 0, 5);
-    });
-    view.setDoc("hello brave world");
-    pending.resolve({ start: 0, end: 5, text: "HELLO" });
-    await pending.promise;
     await new Promise((resolve) => setTimeout(resolve, 0));
-
     expect(view.dispatch).not.toHaveBeenCalled();
   });
 
-  it("calls onError when formatter rejects", async () => {
+  it("calls onError when format rejects", async () => {
     const onError = vi.fn();
-    const formatter = mockFormatter({
-      format: vi.fn().mockRejectedValue(new Error("wasm broke")),
-    });
-    const ext = createTypstFormatter({ instance: formatter, onError });
+    const project = mockProject(vi.fn().mockRejectedValue(new Error("wasm broke")));
+    const ext = createTypstFormatter({ project, onError });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     run!(mockView("x"));
@@ -231,10 +165,8 @@ describe("createTypstFormatter", () => {
 
   it("falls back to console.warn when no onError", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const formatter = mockFormatter({
-      format: vi.fn().mockRejectedValue(new Error("boom")),
-    });
-    const ext = createTypstFormatter({ instance: formatter });
+    const project = mockProject(vi.fn().mockRejectedValue(new Error("boom")));
+    const ext = createTypstFormatter({ project });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     run!(mockView("x"));
@@ -246,10 +178,8 @@ describe("createTypstFormatter", () => {
 
   it("wraps non-Error throws in an Error", async () => {
     const onError = vi.fn();
-    const formatter = mockFormatter({
-      format: vi.fn().mockRejectedValue("string error"),
-    });
-    const ext = createTypstFormatter({ instance: formatter, onError });
+    const project = mockProject(vi.fn().mockRejectedValue("string error"));
+    const ext = createTypstFormatter({ project, onError });
     const run = getKeyRun(ext, "Shift-Alt-f");
 
     run!(mockView("x"));
@@ -260,49 +190,33 @@ describe("createTypstFormatter", () => {
   });
 
   it("adds Mod-s binding when formatOnSave is enabled", () => {
-    const formatter = mockFormatter();
-    const ext = createTypstFormatter({
-      instance: formatter,
-      formatOnSave: true,
-    });
-    const run = getKeyRun(ext, "Mod-s");
-    expect(run).toBeDefined();
+    const ext = createTypstFormatter({ project: mockProject(), formatOnSave: true });
+    expect(getKeyRun(ext, "Mod-s")).toBeDefined();
   });
 
-  it("calls save callback after formatting on Mod-s", async () => {
+  it("calls the save callback after formatting on Mod-s", async () => {
     const onSave = vi.fn();
-    const formatter = mockFormatter({
-      format: vi.fn().mockResolvedValue("saved content"),
-    });
-    const ext = createTypstFormatter({
-      instance: formatter,
-      formatOnSave: onSave,
-    });
+    const project = mockProject(vi.fn().mockResolvedValue("saved content"));
+    const ext = createTypstFormatter({ project, formatOnSave: onSave });
     const run = getKeyRun(ext, "Mod-s");
 
-    const view = mockView("original");
-    run!(view);
+    run!(mockView("original"));
     await vi.waitFor(() => {
       expect(onSave).toHaveBeenCalled();
     });
   });
 
-  it("does not call save callback when the document changes before formatting resolves", async () => {
+  it("does not call the save callback when the document changes mid-format", async () => {
     const onSave = vi.fn();
     const pending = deferred<string>();
-    const formatter = mockFormatter({
-      format: vi.fn().mockReturnValue(pending.promise),
-    });
-    const ext = createTypstFormatter({
-      instance: formatter,
-      formatOnSave: onSave,
-    });
+    const project = mockProject(vi.fn().mockReturnValue(pending.promise));
+    const ext = createTypstFormatter({ project, formatOnSave: onSave });
     const run = getKeyRun(ext, "Mod-s");
     const view = mutableMockView("original");
 
     run!(view);
     await vi.waitFor(() => {
-      expect(formatter.format).toHaveBeenCalledWith("original");
+      expect(project.format).toHaveBeenCalledWith("/main.typ", "original");
     });
     view.setDoc("changed");
     pending.resolve("formatted");

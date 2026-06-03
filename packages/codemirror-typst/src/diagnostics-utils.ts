@@ -1,4 +1,4 @@
-import type { DiagnosticMessage } from "@vedivad/typst-web-service";
+import { type Diagnostic, normalizePath } from "@vedivad/typst-web-service";
 
 export interface DiagnosticLocation {
   path: string;
@@ -8,29 +8,26 @@ export interface DiagnosticLocation {
   col: number;
 }
 
-/**
- * Group diagnostics by file path while preserving original order per file.
- */
+/** Group diagnostics by file path (preserving per-file order). Unlocated ones key on "". */
 export function groupDiagnosticsByFile(
-  diagnostics: readonly DiagnosticMessage[],
-): Record<string, DiagnosticMessage[]> {
-  const grouped: Record<string, DiagnosticMessage[]> = {};
-  for (const diagnostic of diagnostics) {
-    if (!grouped[diagnostic.path]) grouped[diagnostic.path] = [];
-    grouped[diagnostic.path].push(diagnostic);
+  diagnostics: readonly Diagnostic[],
+): Record<string, Diagnostic[]> {
+  const grouped: Record<string, Diagnostic[]> = {};
+  for (const d of diagnostics) {
+    const path = d.location ? normalizePath(d.location.file) : "";
+    (grouped[path] ??= []).push(d);
   }
   return grouped;
 }
 
-/**
- * Convert a diagnostic's start position to a 1-based location.
- */
+/** A diagnostic's 1-based start location, or `undefined` if it has no location. */
 export function diagnosticLocation(
-  diagnostic: DiagnosticMessage,
-): DiagnosticLocation {
+  d: Diagnostic,
+): DiagnosticLocation | undefined {
+  if (!d.location) return undefined;
   return {
-    path: diagnostic.path,
-    line: diagnostic.range.startLine + 1,
-    col: diagnostic.range.startCol + 1,
+    path: normalizePath(d.location.file),
+    line: d.location.line,
+    col: d.location.column,
   };
 }

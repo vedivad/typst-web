@@ -1,7 +1,11 @@
 import { setDiagnostics } from "@codemirror/lint";
 import { type Extension } from "@codemirror/state";
 import { type EditorView, ViewPlugin } from "@codemirror/view";
-import type { CompileResult, TypstProject } from "@vedivad/typst-web-service";
+import {
+  type CompileResult,
+  normalizePath,
+  type TypstProject,
+} from "@vedivad/typst-web-service";
 import { toCMDiagnostic } from "./diagnostics.js";
 import { typstFilePath } from "./facets.js";
 
@@ -46,7 +50,7 @@ export class DiagnosticsPlugin {
       const view = this.view;
       const path = view.state.facet(typstFilePath);
       const diagnostics = result.diagnostics
-        .filter((d) => d.path === path)
+        .filter((d) => d.location && normalizePath(d.location.file) === path)
         .map((d) => toCMDiagnostic(view.state, d));
       view.dispatch(setDiagnostics(view.state, diagnostics));
     });

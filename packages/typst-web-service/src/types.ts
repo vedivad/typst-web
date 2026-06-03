@@ -1,15 +1,22 @@
-/** Source range for a diagnostic. All values are 0-indexed. */
-export interface DiagnosticRange {
-  startLine: number;
-  startCol: number;
-  endLine: number;
-  endCol: number;
-}
+// The engine speaks typsten's typed DTOs directly (one wasm, one set of types).
+// Re-export them as the package's public shapes.
+export type {
+  CompileResult,
+  Completion,
+  CompletionKind,
+  CompletionResponse,
+  Diagnostic,
+  Hover,
+  HoverKind,
+  Location,
+  PageInfo,
+  Severity,
+} from "typsten";
 
-export interface DiagnosticMessage {
-  package: string;
-  path: string;
-  severity: "Error" | "Warning" | "Info";
-  range: DiagnosticRange;
-  message: string;
+/** A rendered page: its index, dimensions (in points), and standalone SVG. */
+export interface RenderedSvgPage {
+  index: number;
+  width: number;
+  height: number;
+  svg: string;
 }

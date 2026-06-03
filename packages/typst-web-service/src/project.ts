@@ -1,137 +1,120 @@
-import type { TypstAnalyzer } from "./analyzer.js";
-import type {
-  LspCompletionResponse,
-  LspHover,
-  LspPosition,
-} from "./analyzer-types.js";
+import * as Comlink from "comlink";
+import type { Remote } from "comlink";
 import { CompileScheduler } from "./compile-scheduler.js";
-import type { CompileResult, TypstCompiler } from "./compiler.js";
-import {
-  normalizePath,
-  normalizeRoot,
-  type Path,
-  pathToAnalyzerUri,
-} from "./identifiers.js";
+import { cmOffsetToByte } from "./coords.js";
+import { normalizePath, type Path } from "./identifiers.js";
+import { createPackageLoader, type PackageLoader } from "./packages.js";
+import { createWorker } from "./rpc.js";
+import type { CompileResult, CompletionResponse, Hover, RenderedSvgPage } from "./types.js";
+import type { TypstenWorkerApi } from "./typsten-worker.js";
 
-export interface TypstProjectOptions {
-  compiler: TypstCompiler;
+export interface TypstProjectCreateOptions {
   /**
-   * Optional analyzer. When provided, text file operations also sync with the
-   * analyzer so completions / hover reflect the current state.
+   * URL of the typsten `*_bg.wasm`. Optional: defaults to the wasm shipped next
+   * to this package's `dist/`, self-resolved via `import.meta.url`, so consumers
+   * normally need not provide it. Pass an explicit URL (e.g. a Vite `?url`
+   * import) only to override where the engine is loaded from.
    */
-  analyzer?: TypstAnalyzer;
+  wasmUrl?: string;
   /** Default entry file path. Default: "/main.typ". */
   entry?: string;
-  /**
-   * Prefix used to build the `untitled:` URIs handed to the analyzer.
-   * Default: "/project". A path of `/main.typ` becomes
-   * `untitled:project/main.typ`. Only affects URI construction — the compiler
-   * and project VFS use the raw paths unchanged.
-   */
-  analyzerUriRoot?: string;
-  /**
-   * Scheduling for auto-compiles after VFS mutations. Mutations debounce by
-   * `debounceMs`; `maxWaitMs` caps how long the debounce can keep deferring
-   * during sustained edits so the user still sees progress.
-   */
+  /** Auto-compile scheduling after VFS mutations. */
   autoCompile?: AutoCompileOptions;
+  /**
+   * Fetch `@preview` packages over HTTP on demand. Default: `true`. Set `false`
+   * to skip the network entirely (imports then resolve only from pushed files).
+   */
+  packages?: boolean;
+  /** Provide your own Worker (e.g. for a bundler that needs an explicit entry). */
+  worker?: Worker;
 }
 
 export interface AutoCompileOptions {
-  /**
-   * Idle time (ms) after the last VFS mutation before a compile fires.
-   * Default: 0 — compile fires on the next macrotask. Set higher (e.g. 150) to
-   * coalesce rapid edits.
-   */
+  /** Idle time (ms) after the last mutation before a compile fires. Default: 0. */
   debounceMs?: number;
-  /**
-   * Maximum time (ms) the debounce is allowed to defer a compile during
-   * sustained mutation bursts. Default: 0 (no cap — pure debounce).
-   */
+  /** Max time (ms) the debounce may defer during sustained edits. Default: 0. */
   maxWaitMs?: number;
 }
 
-const DEFAULT_ENTRY = "/main.typ";
-const DEFAULT_ROOT = "/project";
-
-/**
- * Coordinates a compiler + analyzer pair for multi-file Typst projects.
- *
- * Owns the project's virtual filesystem state. Editors push incremental
- * `setText` updates as the user types; the project mirrors those edits to
- * both the compiler's shadow VFS and the analyzer's open-document set, then
- * compiles or services LSP requests against the current state.
- *
- *   const project = new TypstProject({ compiler, analyzer });
- *   await project.setMany({ "/main.typ": "...", "/utils.typ": "..." });
- *   const result = await project.compile();
- */
 export type CompileListener = (result: CompileResult) => void;
 
-function errorAsCompileResult(
-  err: unknown,
-  paths: readonly string[],
-): CompileResult {
+const DEFAULT_ENTRY = "/main.typ";
+const encoder = new TextEncoder();
+
+function errorAsCompileResult(err: unknown): CompileResult {
   const message = err instanceof Error ? err.message : String(err);
   return {
-    diagnostics: paths.map((path) => ({
-      package: "",
-      path,
-      severity: "Error",
-      range: { startLine: 0, startCol: 0, endLine: 0, endCol: 1 },
-      message,
-    })),
+    pages: [],
+    diagnostics: [{ severity: "error", message, hints: [], location: undefined }],
   };
 }
 
+function toBytes(content: ArrayBuffer | ArrayBufferView): Uint8Array {
+  if (content instanceof Uint8Array) return content;
+  if (ArrayBuffer.isView(content)) {
+    return new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+  }
+  return new Uint8Array(content);
+}
+
+/**
+ * Multi-file Typst project backed by a single typsten wasm worker. Owns the
+ * VFS; editors push `setText` edits as the user types; the project mirrors them
+ * to the worker, fetches `@preview` packages on demand, and compiles or renders
+ * against the current state.
+ *
+ *   const project = await TypstProject.create({ wasmUrl });
+ *   await project.setMany({ "/main.typ": "..." });
+ *   const { pages } = await project.compile();
+ *   const svg = await project.renderPage(0);
+ */
 export class TypstProject {
-  private readonly compiler: TypstCompiler;
-  private readonly analyzer?: TypstAnalyzer;
-  private readonly analyzerUriRoot: string;
-  /**
-   * Tracked text files: path → latest content observed. Presence in this map
-   * is the source of truth for "is this a tracked text file?"; insertion
-   * order drives the `files` getter. Per-sink dedup lives in the compiler and
-   * analyzer.
-   */
+  /** All tracked project file paths (text + binary). Drives `clear`. */
+  private readonly trackedPaths = new Set<Path>();
+  /** Tracked text content, for dedup and `getText`. */
   private readonly contentByPath = new Map<Path, string>();
   private readonly compileListeners = new Set<CompileListener>();
   private readonly scheduler: CompileScheduler;
+  private readonly packageLoader?: PackageLoader;
   private compileVersion = 0;
   private _lastResult: CompileResult | undefined;
   private _entry: Path;
   private destroyed = false;
 
-  private invokeListener(
-    listener: CompileListener,
-    result: CompileResult,
-  ): void {
-    try {
-      listener(result);
-    } catch (err) {
-      console.error("[typst] compile listener threw:", err);
-    }
-  }
-
-  constructor(options: TypstProjectOptions) {
-    this.compiler = options.compiler;
-    this.analyzer = options.analyzer;
-    this.analyzerUriRoot = normalizeRoot(
-      options.analyzerUriRoot ?? DEFAULT_ROOT,
-    );
+  private constructor(
+    private readonly engine: Remote<TypstenWorkerApi>,
+    private readonly worker: Worker,
+    options: TypstProjectCreateOptions,
+  ) {
     this._entry = normalizePath(options.entry ?? DEFAULT_ENTRY);
     this.scheduler = new CompileScheduler({
       debounceMs: options.autoCompile?.debounceMs,
       maxWaitMs: options.autoCompile?.maxWaitMs,
     });
+    if (options.packages !== false) {
+      this.packageLoader = createPackageLoader((path, bytes) =>
+        this.engine.setFile(path, bytes),
+      );
+    }
   }
 
-  /**
-   * Schedule an auto-compile after VFS mutations. Coalesces rapid calls via
-   * the configured debounce/throttle. Errors surface through `onCompile`
-   * listeners via a synthetic diagnostic; callers awaiting a specific compile
-   * should call `compile()` directly.
-   */
+  /** Create a project: spin up the worker, init the wasm, set the entry. */
+  static async create(options: TypstProjectCreateOptions): Promise<TypstProject> {
+    const worker = options.worker ?? createWorker();
+    const engine = Comlink.wrap<TypstenWorkerApi>(worker);
+    // Resolve to an absolute URL on the main thread: the worker is a blob: URL,
+    // so a relative path (e.g. Vite's `/@fs/...`) would not resolve there. With
+    // no explicit URL, fall back to the wasm shipped next to dist/index.js,
+    // resolved against this module's own URL.
+    const wasmUrl = options.wasmUrl
+      ? new URL(options.wasmUrl, globalThis.location?.href).href
+      : new URL("./typsten_bg.wasm", import.meta.url).href;
+    await engine.init(wasmUrl);
+    const project = new TypstProject(engine, worker, options);
+    await engine.setEntry(project._entry);
+    return project;
+  }
+
   private scheduleCompile(): void {
     if (this.destroyed) return;
     this.scheduler.schedule(() => {
@@ -139,7 +122,15 @@ export class TypstProject {
     });
   }
 
-  /** Current entry file path. Assign to change the sticky entry used by subsequent `compile()` calls. */
+  /** Write text into the VFS without scheduling a compile (dedup'd). */
+  private async writeText(p: Path, content: string): Promise<boolean> {
+    if (this.contentByPath.get(p) === content) return false;
+    await this.engine.setFile(p, encoder.encode(content));
+    this.contentByPath.set(p, content);
+    this.trackedPaths.add(p);
+    return true;
+  }
+
   get entry(): Path {
     return this._entry;
   }
@@ -148,185 +139,99 @@ export class TypstProject {
     const next = normalizePath(path);
     if (next === this._entry) return;
     this._entry = next;
+    void this.engine.setEntry(next);
     this.scheduleCompile();
   }
 
-  /** Whether an analyzer is attached. */
-  get hasAnalyzer(): boolean {
-    return this.analyzer !== undefined;
-  }
-
-  /**
-   * Most recent compile result, or `undefined` before the first compile has
-   * settled. Useful for lazy-mounted UI that subscribes after boot and needs
-   * an initial value.
-   */
+  /** Most recent compile result, or `undefined` before the first compile. */
   get lastResult(): CompileResult | undefined {
     return this._lastResult;
   }
 
-  /**
-   * Snapshot of tracked text file paths, in insertion order. Updated by
-   * `setText`, `setMany`, `remove`, and `clear`. Returns a fresh array — mutate
-   * freely without affecting project state.
-   */
+  /** Tracked text file paths, in insertion order (fresh array). */
   get files(): Path[] {
     return [...this.contentByPath.keys()];
   }
 
-  /**
-   * Current text content for a tracked file, or `undefined` if the path was
-   * never written via `setText`/`setMany` (or was removed). Read-through to the
-   * project's sync cache — lets consumers avoid shadowing the VFS themselves.
-   */
+  /** Current text for a tracked file, or `undefined`. */
   getText(path: Path): string | undefined {
     return this.contentByPath.get(normalizePath(path));
   }
 
-  /**
-   * Add or overwrite a text file. Goes to the compiler's VFS and, when an
-   * analyzer is attached, to the analyzer as a document change. No-op when
-   * the tracked path already has this exact content — skips both worker RPCs
-   * and the auto-scheduled compile.
-   */
+  /** Add or overwrite a text file. No-op if unchanged. */
   async setText(path: Path, content: string): Promise<void> {
+    if (await this.writeText(normalizePath(path), content)) this.scheduleCompile();
+  }
+
+  /** Add or overwrite a binary file (retires any text tracking for the path). */
+  async setBinary(path: Path, content: ArrayBuffer | ArrayBufferView): Promise<void> {
     const p = normalizePath(path);
-    if (this.contentByPath.get(p) === content) return;
-    await Promise.all([
-      this.compiler.setText(p, content),
-      this.analyzer?.didChange(
-        pathToAnalyzerUri(p, this.analyzerUriRoot),
-        content,
-      ) ?? Promise.resolve(),
-    ]);
-    this.contentByPath.set(p, content);
+    await this.engine.setFile(p, toBytes(content));
+    this.contentByPath.delete(p);
+    this.trackedPaths.add(p);
     this.scheduleCompile();
   }
 
-  /**
-   * Add or overwrite a JSON file. The analyzer does not track data files, but
-   * if `path` was previously tracked as text the analyzer document is closed
-   * and the text entry retired so the three views stay consistent.
-   */
+  /** Add or overwrite a JSON data file. */
   async setJson(path: Path, value: unknown): Promise<void> {
     const p = normalizePath(path);
-    const wasText = this.contentByPath.has(p);
-    await Promise.all([
-      this.compiler.setJson(p, value),
-      wasText
-        ? this.analyzer?.didClose(pathToAnalyzerUri(p, this.analyzerUriRoot))
-        : undefined,
-    ]);
+    await this.engine.setFile(p, encoder.encode(JSON.stringify(value)));
     this.contentByPath.delete(p);
+    this.trackedPaths.add(p);
     this.scheduleCompile();
   }
 
-  /**
-   * Add or overwrite a binary file. If `path` was previously tracked as text,
-   * the analyzer document is closed and the text entry retired in the same
-   * call so the compiler / analyzer / project views stay consistent.
-   */
-  async setBinary(
-    path: Path,
-    content: ArrayBuffer | ArrayBufferView,
-  ): Promise<void> {
-    const p = normalizePath(path);
-    const wasText = this.contentByPath.has(p);
-    await Promise.all([
-      this.compiler.setBinary(p, content),
-      wasText
-        ? this.analyzer?.didClose(pathToAnalyzerUri(p, this.analyzerUriRoot))
-        : undefined,
-    ]);
-    this.contentByPath.delete(p);
-    this.scheduleCompile();
-  }
-
-  /**
-   * Batch set multiple files. Strings route to both compiler and analyzer;
-   * Uint8Array entries go to the compiler only. Strings matching the last
-   * tracked content for their path are skipped on both sinks. Binary entries
-   * always go through (no content cache, so no dedup).
-   */
+  /** Batch set files. Strings dedup against tracked content; binaries always write. */
   async setMany(files: Record<Path, string | Uint8Array>): Promise<void> {
-    const canonical = new Map<Path, string | Uint8Array>();
+    let changed = false;
+    const writes: Promise<unknown>[] = [];
     for (const [path, content] of Object.entries(files)) {
-      canonical.set(normalizePath(path), content);
-    }
-
-    const normalized: Record<Path, string | Uint8Array> = {};
-    const analyzerDocs: Record<string, string> = {};
-    const textUpdates: Array<[Path, string]> = [];
-    const analyzerCloses: string[] = [];
-    const binaryRetirements: Path[] = [];
-    for (const [p, content] of canonical) {
-      if (typeof content !== "string") {
-        normalized[p] = content;
-        if (this.contentByPath.has(p)) {
-          analyzerCloses.push(pathToAnalyzerUri(p, this.analyzerUriRoot));
-          binaryRetirements.push(p);
-        }
-        continue;
+      const p = normalizePath(path);
+      if (typeof content === "string") {
+        if (this.contentByPath.get(p) === content) continue;
+        writes.push(this.engine.setFile(p, encoder.encode(content)));
+        this.contentByPath.set(p, content);
+      } else {
+        writes.push(this.engine.setFile(p, content));
+        this.contentByPath.delete(p);
       }
-      if (this.contentByPath.get(p) === content) continue;
-      textUpdates.push([p, content]);
-      normalized[p] = content;
-      analyzerDocs[pathToAnalyzerUri(p, this.analyzerUriRoot)] = content;
+      this.trackedPaths.add(p);
+      changed = true;
     }
-    if (Object.keys(normalized).length === 0) return;
-    await Promise.all([
-      this.compiler.setMany(normalized),
-      this.analyzer?.didChangeMany(analyzerDocs) ?? Promise.resolve(),
-      analyzerCloses.length > 0
-        ? (this.analyzer?.didCloseMany(analyzerCloses) ?? Promise.resolve())
-        : Promise.resolve(),
-    ]);
-    for (const [p, content] of textUpdates) this.contentByPath.set(p, content);
-    for (const p of binaryRetirements) this.contentByPath.delete(p);
+    if (!changed) return;
+    await Promise.all(writes);
     this.scheduleCompile();
   }
 
-  /**
-   * Remove a file. Always removed from the compiler's VFS; also closed on the
-   * analyzer when it was previously tracked as text.
-   */
+  /** Remove a file from the VFS. */
   async remove(path: Path): Promise<void> {
     const p = normalizePath(path);
-    const wasText = this.contentByPath.has(p);
-    await Promise.all([
-      this.compiler.remove(p),
-      wasText
-        ? this.analyzer?.didClose(pathToAnalyzerUri(p, this.analyzerUriRoot))
-        : undefined,
-    ]);
+    await this.engine.remove(p);
     this.contentByPath.delete(p);
+    this.trackedPaths.delete(p);
     this.scheduleCompile();
   }
 
-  /** Clear all files from both compiler VFS and analyzer document set. */
+  /** Remove all tracked project files (cached `@preview` packages are kept). */
   async clear(): Promise<void> {
-    const uris = Array.from(this.contentByPath.keys(), (p) =>
-      pathToAnalyzerUri(p, this.analyzerUriRoot),
-    );
-    await Promise.all([
-      this.compiler.clear(),
-      uris.length > 0 ? this.analyzer?.didCloseMany(uris) : undefined,
-    ]);
+    await Promise.all([...this.trackedPaths].map((p) => this.engine.remove(p)));
     this.contentByPath.clear();
+    this.trackedPaths.clear();
     this.scheduleCompile();
   }
 
   /**
-   * Subscribe to compile results. Fires after every `compile()` whose result is
-   * still current (stale results from out-of-order concurrent compiles are
-   * dropped). If a compile has already settled, the most recent result is
-   * delivered synchronously so late-mounted listeners aren't stuck blank until
-   * the next compile. Returns an unsubscribe function.
+   * Subscribe to compile results. Late subscribers get `lastResult` synchronously.
+   * Returns an unsubscribe function.
    */
   onCompile(listener: CompileListener): () => void {
     this.compileListeners.add(listener);
     if (this._lastResult !== undefined) {
-      this.invokeListener(listener, this._lastResult);
+      try {
+        listener(this._lastResult);
+      } catch (err) {
+        console.error("[typst] compile listener threw:", err);
+      }
     }
     return () => {
       this.compileListeners.delete(listener);
@@ -334,108 +239,98 @@ export class TypstProject {
   }
 
   /**
-   * Compile the current VFS state using the sticky entry. Errors from the
-   * underlying compiler are converted into a synthetic error diagnostic so
-   * callers and listeners always receive a `CompileResult`. Listeners are
-   * notified only for the most recent compile — results from an earlier call
-   * that resolves after a later one are suppressed.
-   *
-   * VFS mutations (`setText`, `remove`, etc.) auto-schedule a debounced
-   * compile; call this directly only when you need an awaitable handle on the
-   * result (e.g., to flush before rendering to PDF).
+   * Compile the current VFS state. Fetches any referenced `@preview` packages
+   * first. Errors become a synthetic diagnostic. Listeners fire only for the
+   * most recent compile (stale results are dropped).
    */
   async compile(): Promise<CompileResult> {
     this.scheduler.cancel();
     const version = ++this.compileVersion;
     let result: CompileResult;
     try {
-      result = await this.compiler.compile(this._entry);
+      await this.packageLoader?.ensure(this.contentByPath.values());
+      result = await this.engine.compile();
     } catch (err) {
-      // Spread the synthetic error across every tracked text path so the
-      // diagnostic is visible no matter which file the user is viewing.
-      // Falls back to the entry if nothing is tracked yet.
-      const paths =
-        this.contentByPath.size > 0
-          ? [...this.contentByPath.keys()]
-          : [this._entry];
-      result = errorAsCompileResult(err, paths);
+      result = errorAsCompileResult(err);
     }
     if (version === this.compileVersion) {
       this._lastResult = result;
       for (const listener of this.compileListeners) {
-        this.invokeListener(listener, result);
+        try {
+          listener(result);
+        } catch (err) {
+          console.error("[typst] compile listener threw:", err);
+        }
       }
     }
     return result;
   }
 
-  /** Compile the current VFS state to PDF using the sticky entry. */
-  compilePdf(): Promise<Uint8Array> {
-    return this.compiler.compilePdf(this._entry);
+  /** Render a single page of the last compile to SVG, or `undefined`. */
+  renderPage(index: number): Promise<string | undefined> {
+    return this.engine.renderPage(index);
   }
 
-  private requireAnalyzer(operation: string): TypstAnalyzer {
-    if (!this.analyzer) {
-      throw new Error(`TypstProject: ${operation} requires an analyzer`);
-    }
-    return this.analyzer;
+  /** Render pages `[start, end)` of the last compile to SVG (end clamped). */
+  renderPages(start: number, end: number): Promise<string[]> {
+    return this.engine.renderPages(start, end);
   }
 
   /**
-   * Request completion for `path` at `position`, using `source` as the
-   * current document state. Pure analyzer query — neither the compiler VFS
-   * nor project tracking (`files`/`getText`) is touched. Throws when no
-   * analyzer is attached.
+   * Render pages `[start, end)` as `RenderedSvgPage`s (index + dims + svg),
+   * zipping the SVG strings with the page metadata from the last compile.
    */
-  completion(
+  async renderedPages(start: number, end: number): Promise<RenderedSvgPage[]> {
+    const pages = this._lastResult?.pages ?? [];
+    const svgs = await this.engine.renderPages(start, end);
+    return svgs.map((svg, i) => {
+      const index = start + i;
+      const dims = pages[index];
+      return {
+        index,
+        width: dims?.width ?? 0,
+        height: dims?.height ?? 0,
+        svg,
+      };
+    });
+  }
+
+  /** Completions at a CodeMirror `offset` in `path`, using `source` as the live buffer. */
+  async completion(
     path: Path,
     source: string,
-    position: LspPosition,
-  ): Promise<LspCompletionResponse> {
-    const analyzer = this.requireAnalyzer("completion");
-    return analyzer.completion(
-      pathToAnalyzerUri(normalizePath(path), this.analyzerUriRoot),
-      source,
-      position,
-    );
+    offset: number,
+    explicit = false,
+  ): Promise<CompletionResponse | undefined> {
+    const p = normalizePath(path);
+    await this.writeText(p, source);
+    return this.engine.complete(p, cmOffsetToByte(source, offset), explicit);
   }
 
-  /**
-   * Request hover for `path` at `position`, using `source` as the current
-   * document state. Pure analyzer query — neither the compiler VFS nor
-   * project tracking is touched. Throws when no analyzer is attached.
-   */
-  hover(
-    path: Path,
-    source: string,
-    position: LspPosition,
-  ): Promise<LspHover | null> {
-    const analyzer = this.requireAnalyzer("hover");
-    return analyzer.hover(
-      pathToAnalyzerUri(normalizePath(path), this.analyzerUriRoot),
-      source,
-      position,
-    );
+  /** Hover tooltip at a CodeMirror `offset` in `path`, using `source` as the live buffer. */
+  async hover(path: Path, source: string, offset: number): Promise<Hover | undefined> {
+    const p = normalizePath(path);
+    await this.writeText(p, source);
+    return this.engine.hover(p, cmOffsetToByte(source, offset));
   }
 
-  /**
-   * Tear down the project and the services it owns. Destroys the attached
-   * compiler and analyzer, drops all listeners, and clears VFS tracking state.
-   * Idempotent — calling twice is a no-op. After destruction, further calls on
-   * the project are not supported; construct a new one.
-   *
-   * If you need to share a compiler or analyzer across projects, destroy them
-   * yourself and don't call this method — the project does not provide an
-   * ownership toggle.
-   */
+  /** Format `source` (the live buffer for `path`); returns the formatted text or `undefined`. */
+  async format(path: Path, source: string): Promise<string | undefined> {
+    const p = normalizePath(path);
+    await this.writeText(p, source);
+    return this.engine.format(p);
+  }
+
+  /** Tear down the worker and drop all state. Idempotent. */
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
     this.scheduler.cancel();
     this.compileListeners.clear();
     this.contentByPath.clear();
+    this.trackedPaths.clear();
     this._lastResult = undefined;
-    this.compiler.destroy();
-    this.analyzer?.destroy();
+    this.engine[Comlink.releaseProxy]();
+    this.worker.terminate();
   }
 }

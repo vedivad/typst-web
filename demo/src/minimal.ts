@@ -3,30 +3,21 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import {
   createTypstHighlighting,
   createTypstSetup,
-  TypstCompiler,
   TypstProject,
-  TypstRenderer,
 } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
 
 const editorEl = document.getElementById("editor")!;
 const previewEl = document.getElementById("preview")!;
 
-const [compiler, renderer] = await Promise.all([
-  TypstCompiler.create(),
-  TypstRenderer.create(),
-]);
-
-const project = new TypstProject({
-  compiler,
+const project = await TypstProject.create({
   autoCompile: { debounceMs: 100, maxWaitMs: 500 },
 });
 
 project.onCompile(async (result) => {
-  if (result.vector) {
-    const svg = await renderer.renderSvg(result.vector);
-    previewEl.innerHTML = `<div class="svg-container">${svg}</div>`;
-  }
+  if (result.pages.length === 0) return;
+  const svg = await project.renderPage(0);
+  previewEl.innerHTML = `<div class="svg-container">${svg ?? ""}</div>`;
 });
 
 const highlighting = await createTypstHighlighting({ theme: "dark" });
@@ -44,4 +35,4 @@ new EditorView({
   }),
 });
 
-await project.compile(); // trigger initial compile immediately, bypass auto-compile debounce
+await project.compile(); // trigger the initial compile immediately

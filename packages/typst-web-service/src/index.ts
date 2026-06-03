@@ -1,28 +1,23 @@
-export type { TypstAnalyzerOptions } from "./analyzer.js";
-export { TypstAnalyzer } from "./analyzer.js";
+export { byteToCmOffset, cmOffsetToByte } from "./coords.js";
+export type { Path } from "./identifiers.js";
+export { normalizePath } from "./identifiers.js";
+export { createPackageLoader, type PackageLoader } from "./packages.js";
 export type {
-  LspCompletionItem,
-  LspCompletionList,
-  LspCompletionResponse,
-  LspDiagnostic,
-  LspHover,
-  LspHoverContents,
-  LspMarkupContent,
-  LspPosition,
-  LspRange,
-} from "./analyzer-types.js";
-export type { AnalyzerUri, Path } from "./identifiers.js";
-export {
-  normalizePath,
-  normalizeRoot,
-  pathToAnalyzerUri,
-} from "./identifiers.js";
-export type { CompileResult, TypstCompilerOptions } from "./compiler.js";
-export { TypstCompiler } from "./compiler.js";
-export type { FormatConfig, FormatRangeResult } from "./formatter.js";
-export { TypstFormatter } from "./formatter.js";
-export type { TypstProjectOptions } from "./project.js";
+  AutoCompileOptions,
+  CompileListener,
+  TypstProjectCreateOptions,
+} from "./project.js";
 export { TypstProject } from "./project.js";
-export type { RenderedSvgPage, TypstRendererOptions } from "./renderer.js";
-export { TypstRenderer } from "./renderer.js";
-export type { DiagnosticMessage, DiagnosticRange } from "./types.js";
+export type {
+  CompileResult,
+  Completion,
+  CompletionKind,
+  CompletionResponse,
+  Diagnostic,
+  Hover,
+  HoverKind,
+  Location,
+  PageInfo,
+  RenderedSvgPage,
+  Severity,
+} from "./types.js";

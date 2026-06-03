@@ -21,8 +21,8 @@ import {
   typstCompletionSource,
 } from "../index.js";
 
-function mockProject(hasAnalyzer = false) {
-  return { hasAnalyzer };
+function mockProject() {
+  return {} as never;
 }
 
 const stubHighlighting = {
@@ -37,10 +37,7 @@ describe("createTypstSetup", () => {
     vi.mocked(createTypstCompileSync).mockClear();
     vi.mocked(createTypstDiagnostics).mockClear();
     const project = mockProject();
-    const extensions = createTypstSetup({
-      project: project as any,
-      sync: "editor-driven",
-    });
+    const extensions = createTypstSetup({ project, sync: "editor-driven" });
 
     expect(createTypstCompileSync).toHaveBeenCalledWith({ project });
     expect(createTypstDiagnostics).toHaveBeenCalledWith({ project });
@@ -52,10 +49,7 @@ describe("createTypstSetup", () => {
     vi.mocked(createTypstCompileSync).mockClear();
     vi.mocked(createTypstDiagnostics).mockClear();
     const project = mockProject();
-    const extensions = createTypstSetup({
-      project: project as any,
-      sync: "external",
-    });
+    const extensions = createTypstSetup({ project, sync: "external" });
 
     expect(createTypstCompileSync).not.toHaveBeenCalled();
     expect(createTypstDiagnostics).toHaveBeenCalledWith({ project });
@@ -63,15 +57,12 @@ describe("createTypstSetup", () => {
     expect(extensions).toContainEqual({ kind: "diagnostics" });
   });
 
-  it("omits highlighting and hover highlightCode when no controller is given", () => {
+  it("always wires hover (typsten has built-in analysis)", () => {
     vi.mocked(createTypstHoverImpl).mockClear();
-    const project = mockProject(true);
-    const extensions = createTypstSetup({
-      project: project as any,
-      sync: "editor-driven",
-    });
+    const project = mockProject();
+    const extensions = createTypstSetup({ project, sync: "editor-driven" });
 
-    expect(extensions).not.toContainEqual({ kind: "shiki" });
+    expect(extensions).toContainEqual({ kind: "hover" });
     expect(createTypstHoverImpl).toHaveBeenCalledWith({
       project,
       highlightCode: undefined,
@@ -80,11 +71,11 @@ describe("createTypstSetup", () => {
 
   it("wires the highlighting controller into the bundle and into hover", () => {
     vi.mocked(createTypstHoverImpl).mockClear();
-    const project = mockProject(true);
+    const project = mockProject();
     const extensions = createTypstSetup({
-      project: project as any,
+      project,
       sync: "editor-driven",
-      highlighting: stubHighlighting as any,
+      highlighting: stubHighlighting as never,
     });
 
     expect(extensions).toContain(stubHighlighting.extension);
@@ -92,14 +83,6 @@ describe("createTypstSetup", () => {
       project,
       highlightCode: stubHighlighting.highlightCode,
     });
-  });
-
-  it("skips analyzer-only features when the project has no analyzer", () => {
-    vi.mocked(createTypstHoverImpl).mockClear();
-    const project = mockProject(false);
-    createTypstSetup({ project: project as any, sync: "editor-driven" });
-
-    expect(createTypstHoverImpl).not.toHaveBeenCalled();
   });
 });
 

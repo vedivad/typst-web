@@ -1,7 +1,7 @@
 import type { Extension } from "@codemirror/state";
-import type { EditorView } from "@codemirror/view";
-import { keymap } from "@codemirror/view";
-import type { TypstFormatter } from "@vedivad/typst-web-service";
+import { type EditorView, keymap } from "@codemirror/view";
+import type { TypstProject } from "@vedivad/typst-web-service";
+import { typstFilePath } from "./facets.js";
 
 export interface DiffChange {
   from: number;
@@ -10,49 +10,31 @@ export interface DiffChange {
 }
 
 export interface TypstFormatterOptions {
-  /** TypstFormatter instance to use for formatting. */
-  instance: TypstFormatter;
-  /** Keybinding for format. Default: "Shift-Alt-f" */
+  /** Project whose engine formats the active file. */
+  project: TypstProject;
+  /** Keybinding for format. Default: "Shift-Alt-f". */
   keybinding?: string;
   /**
-   * Format the document on Ctrl+S / Cmd+S.
-   *
-   * - `true` — format on save, no callback.
-   * - A function — format on save, then call the function with the formatted content.
-   *
-   * Omit or set to `false` to disable.
+   * Format on Ctrl+S / Cmd+S. `true` to format; a function to format then
+   * receive the formatted content; omit/`false` to disable.
    */
   formatOnSave?: boolean | ((content: string) => void);
-  /**
-   * Called when formatting fails (e.g. WASM failed to load or typstyle threw).
-   * If omitted, errors are logged to `console.warn`.
-   */
+  /** Called when formatting fails. Defaults to `console.warn`. */
   onError?: (error: Error) => void;
 }
 
 function handleError(error: unknown, onError?: (error: Error) => void): void {
   const err = error instanceof Error ? error : new Error(String(error));
-  if (onError) {
-    onError(err);
-  } else {
-    console.warn("[typst-formatter]", err.message);
-  }
+  if (onError) onError(err);
+  else console.warn("[typst-formatter]", err.message);
 }
 
-/**
- * Compute minimal changes between two strings using common prefix/suffix.
- * Returns ChangeSpec[] that only touch the differing region, preserving
- * cursor position and undo granularity for unchanged parts.
- */
+/** Minimal change between two strings via common prefix/suffix, to preserve cursor/undo. */
 export function diffChanges(oldStr: string, newStr: string): DiffChange[] {
-  // Find common prefix
   let from = 0;
   const minLen = Math.min(oldStr.length, newStr.length);
-  while (from < minLen && oldStr[from] === newStr[from]) {
-    from++;
-  }
+  while (from < minLen && oldStr[from] === newStr[from]) from++;
 
-  // Find common suffix (not overlapping with prefix)
   let oldEnd = oldStr.length;
   let newEnd = newStr.length;
   while (
@@ -65,71 +47,40 @@ export function diffChanges(oldStr: string, newStr: string): DiffChange[] {
   }
 
   if (from === oldEnd && from === newEnd) return [];
-
   return [{ from, to: oldEnd, insert: newStr.slice(from, newEnd) }];
-}
-
-async function formatDocument(
-  view: EditorView,
-  formatter: TypstFormatter,
-): Promise<boolean> {
-  const doc = view.state.doc.toString();
-  const formatted = await formatter.format(doc);
-  if (view.state.doc.toString() !== doc) return false;
-
-  const changes = diffChanges(doc, formatted);
-  if (changes.length > 0) {
-    view.dispatch({ changes });
-  }
-  return true;
 }
 
 async function runFormat(
   view: EditorView,
-  formatter: TypstFormatter,
-  selectionOnlyWhenActive: boolean,
+  project: TypstProject,
   onFormatted?: () => void,
   onError?: (error: Error) => void,
 ): Promise<void> {
   try {
-    const { from, to } = view.state.selection.main;
-
-    if (selectionOnlyWhenActive && from !== to) {
-      const doc = view.state.doc.toString();
-      const result = await formatter.formatRange(doc, from, to);
-      if (view.state.doc.toString() !== doc) return;
-
-      view.dispatch({
-        changes: { from: result.start, to: result.end, insert: result.text },
-      });
-    } else {
-      if (await formatDocument(view, formatter)) {
-        onFormatted?.();
-      }
-    }
+    const path = view.state.facet(typstFilePath);
+    const doc = view.state.doc.toString();
+    const formatted = await project.format(path, doc);
+    // `undefined` means the source can't be formatted (e.g. syntax errors).
+    if (formatted === undefined) return;
+    // Bail if the document changed while we were awaiting.
+    if (view.state.doc.toString() !== doc) return;
+    const changes = diffChanges(doc, formatted);
+    if (changes.length > 0) view.dispatch({ changes });
+    onFormatted?.();
   } catch (error) {
     handleError(error, onError);
   }
 }
 
 /**
- * Create a CodeMirror extension that formats Typst code via a TypstFormatter.
- *
- * Binds Shift+Alt+F by default. Formats the selection if one exists,
- * otherwise formats the entire document.
- *
- * When `formatOnSave` is enabled, Ctrl+S / Cmd+S formats the full document
- * and optionally calls a callback with the formatted content.
+ * CodeMirror extension that formats the active Typst file via the project's
+ * engine. Binds Shift+Alt+F (and optionally Ctrl/Cmd+S). Formats the whole
+ * document (typsten has no range formatter).
  */
 export function createTypstFormatter(
   options: TypstFormatterOptions,
 ): Extension {
-  const {
-    instance: formatter,
-    keybinding = "Shift-Alt-f",
-    formatOnSave,
-    onError,
-  } = options;
+  const { project, keybinding = "Shift-Alt-f", formatOnSave, onError } = options;
   const onSaveFormatted =
     typeof formatOnSave === "function" ? formatOnSave : undefined;
 
@@ -137,7 +88,7 @@ export function createTypstFormatter(
     {
       key: keybinding,
       run: (view: EditorView) => {
-        runFormat(view, formatter, true, undefined, onError);
+        void runFormat(view, project, undefined, onError);
         return true;
       },
     },
@@ -147,10 +98,9 @@ export function createTypstFormatter(
     keys.push({
       key: "Mod-s",
       run: (view: EditorView) => {
-        runFormat(
+        void runFormat(
           view,
-          formatter,
-          false,
+          project,
           onSaveFormatted
             ? () => onSaveFormatted(view.state.doc.toString())
             : undefined,

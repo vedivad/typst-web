@@ -1,8 +1,5 @@
 import { EditorState } from "@codemirror/state";
-import type {
-  CompileResult,
-  DiagnosticMessage,
-} from "@vedivad/typst-web-service";
+import type { CompileResult, Diagnostic } from "@vedivad/typst-web-service";
 import { describe, expect, it, vi } from "vitest";
 import { CompileSyncPlugin } from "../compile-sync.js";
 import { DiagnosticsPlugin } from "../diagnostics-plugin.js";
@@ -12,22 +9,34 @@ function mockView(doc: string) {
   return { state, dispatch: vi.fn() } as any;
 }
 
-function mockProject(diagnostics: DiagnosticMessage[] = []) {
+function result(diagnostics: Diagnostic[]): CompileResult {
+  return { pages: [], diagnostics };
+}
+
+function diag(file: string, message: string): Diagnostic {
+  return {
+    severity: "error",
+    message,
+    hints: [],
+    location: { file, start: 0, end: 3, line: 1, column: 1 },
+  };
+}
+
+function mockProject(diagnostics: Diagnostic[] = []) {
   const listeners = new Set<(r: CompileResult) => void>();
   const project = {
-    hasAnalyzer: false,
     setText: vi.fn().mockResolvedValue(undefined),
     compile: vi.fn().mockImplementation(async () => {
-      const result: CompileResult = { diagnostics };
-      listeners.forEach((l) => l(result));
-      return result;
+      const r = result(diagnostics);
+      listeners.forEach((l) => l(r));
+      return r;
     }),
     onCompile: vi.fn((listener: (r: CompileResult) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     }),
-    fire(result: CompileResult) {
-      listeners.forEach((l) => l(result));
+    fire(r: CompileResult) {
+      listeners.forEach((l) => l(r));
     },
     listeners,
   };
@@ -97,27 +106,12 @@ describe("DiagnosticsPlugin", () => {
   });
 
   it("dispatches diagnostics filtered to the active path", async () => {
-    const diags: DiagnosticMessage[] = [
-      {
-        package: "",
-        path: "/main.typ",
-        severity: "Error",
-        range: { startLine: 0, startCol: 0, endLine: 0, endCol: 3 },
-        message: "bad",
-      },
-      {
-        package: "",
-        path: "/other.typ",
-        severity: "Warning",
-        range: { startLine: 0, startCol: 0, endLine: 0, endCol: 1 },
-        message: "ignored",
-      },
-    ];
+    const diags = [diag("main.typ", "bad"), diag("other.typ", "ignored")];
     const project = mockProject(diags);
     const view = mockView("abc");
     new DiagnosticsPlugin({ project: project as any }, view);
 
-    project.fire({ diagnostics: diags });
+    project.fire(result(diags));
     await waitFor(() => view.dispatch.mock.calls.length > 0);
     expect(view.dispatch).toHaveBeenCalled();
   });
@@ -128,17 +122,7 @@ describe("DiagnosticsPlugin", () => {
     new DiagnosticsPlugin({ project: project as any }, view);
 
     const before = view.dispatch.mock.calls.length;
-    project.fire({
-      diagnostics: [
-        {
-          package: "",
-          path: "/main.typ",
-          severity: "Error",
-          range: { startLine: 0, startCol: 0, endLine: 0, endCol: 3 },
-          message: "late",
-        },
-      ],
-    });
+    project.fire(result([diag("main.typ", "late")]));
 
     await waitFor(() => view.dispatch.mock.calls.length > before);
     expect(view.dispatch.mock.calls.length).toBe(before + 1);
