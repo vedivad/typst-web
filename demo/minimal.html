@@ -1,36 +1,34 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>codemirror-typst - minimal demo</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>codemirror-typst - minimal demo</title>
-  <link rel="stylesheet" href="/src/style.css" />
-</head>
-
-<body>
-  <div class="layout">
-    <header>
-      <div class="header-row">
-        <div>
-          <h1>codemirror-typst - minimal</h1>
-          <p>
-            Single file, compile + preview. No analyzer, formatter, or PDF.
-            <a href="/">→ full demo</a>
-          </p>
+  <body>
+    <div class="layout">
+      <header>
+        <div class="header-row">
+          <div>
+            <h1>codemirror-typst - minimal</h1>
+            <p>
+              Single file, compile + preview. No analyzer, formatter, or PDF.
+              <a href="/">→ full demo</a>
+            </p>
+          </div>
+        </div>
+      </header>
+      <div class="main">
+        <div class="editor-pane">
+          <div class="editor" id="editor"></div>
+        </div>
+        <div class="preview" id="preview">
+          <div class="placeholder">Rendering…</div>
         </div>
       </div>
-    </header>
-    <div class="main">
-      <div class="editor-pane">
-        <div class="editor" id="editor"></div>
-      </div>
-      <div class="preview" id="preview">
-        <div class="placeholder">Rendering…</div>
-      </div>
     </div>
-  </div>
-  <script type="module" src="/src/minimal.ts"></script>
-</body>
-
+    <script type="module" src="/src/minimal.ts"></script>
+  </body>
 </html>

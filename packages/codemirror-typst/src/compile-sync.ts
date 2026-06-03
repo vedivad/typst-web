@@ -34,7 +34,7 @@ export class CompileSyncPlugin {
     }
   }
 
-  destroy(): void { }
+  destroy(): void {}
 
   private push(view: EditorView): void {
     this.options.project
