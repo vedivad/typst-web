@@ -10,10 +10,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@babel/runtime": "^7.29.7",
     "@codemirror/lint": "^6",
     "@codemirror/state": "^6",
-    "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6",
+    "@uiw/codemirror-theme-github": "^4.25.10",
     "@vedivad/codemirror-typst": "workspace:*",
     "@vedivad/typst-web-service": "workspace:*",
     "codemirror": "^6.0.2"

@@ -21,23 +21,14 @@ The engine bundles default body, math, and monospace fonts, so documents render 
 ```ts
 import { EditorView, basicSetup } from "codemirror";
 import { EditorState } from "@codemirror/state";
-import {
-  createTypstHighlighting,
-  createTypstSetup,
-  TypstProject,
-} from "@vedivad/codemirror-typst";
+import { createTypstSetup, TypstProject } from "@vedivad/codemirror-typst";
 
 // One project owns the in-memory file system, the compile schedule, and the
 // engine worker. Share it across editors that should see the same files.
 const project = await TypstProject.create();
 await project.setText("/main.typ", "= Hello, Typst!");
 
-const highlighting = createTypstHighlighting({ project, theme: "dark" });
-const setup = createTypstSetup({
-  project,
-  sync: "editor-driven",
-  highlighting,
-});
+const setup = createTypstSetup({ project, sync: "editor-driven" });
 
 new EditorView({
   parent: document.querySelector("#app")!,
@@ -48,7 +39,7 @@ new EditorView({
 });
 ```
 
-`createTypstSetup` bundles highlighting, the lint gutter, compile-on-edit, diagnostics, autocompletion, hover, and (optionally) the formatter. `sync: "editor-driven"` makes CodeMirror the source of truth and mirrors edits into the project; use `sync: "external"` when something else (Y.js, a server) writes into the project.
+`createTypstSetup` bundles syntax highlighting (decorations plus a default light token theme), the lint gutter, compile-on-edit, diagnostics, autocompletion, hover, and (optionally) the formatter, so it is colored out of the box. `sync: "editor-driven"` makes CodeMirror the source of truth and mirrors edits into the project; use `sync: "external"` when something else (Y.js, a server) writes into the project. Override or switch the palette with the `theme` option (see [Theming](#theming)).
 
 ## Live preview
 
@@ -139,24 +130,60 @@ createTypstSetup({
 
 `formatOnSave` can also be a `(content: string) => void` callback (format, then receive the result, e.g. to persist it). The formatter binds `Shift-Alt-f` by default (override with `keybinding`). It runs the engine's built-in `typstyle` formatter, with nothing extra to install.
 
-## Theme switching
+## Theming
 
-Highlighting is computed by the same typst-syntax engine that compiles the document (via the project worker), so tokens are exactly what the parser sees, with no separate grammar. Tokens carry Typst's stable `typ-*` classes, themed by a built-in `light`/`dark` palette; the editor and hover code blocks share it. Override the `themes` option (or style the `typ-*` classes from your own CSS) to customise colors.
+Highlighting is computed by the same typst-syntax engine that compiles the document (via the project worker), so tokens are exactly what the parser sees, with no separate grammar. Tokens carry Typst's stable `typ-*` classes; the editor and hover code blocks share one palette.
 
-`createTypstHighlighting` is synchronous (nothing to preload) and returns a controller you keep at the call site. Call `setTheme(view, alias)` to swap the active theme on a mounted `EditorView`:
+`createTypstSetup` includes a default light palette. Override it with the `theme` option, which takes any token theme built by `typstTheme`:
 
 ```ts
-const highlighting = createTypstHighlighting({ project, theme: "light" });
+import {
+  createTypstSetup,
+  defaultDarkTheme,
+  typstTheme,
+} from "@vedivad/codemirror-typst";
+
 const setup = createTypstSetup({
   project,
   sync: "editor-driven",
-  highlighting,
+  theme: typstTheme(defaultDarkTheme),
 });
-
-highlighting.setTheme(view, "dark");
 ```
 
-The same controller may be shared across views, but CodeMirror compartments are reconfigured per view, so call `setTheme` once per mounted view.
+`typstTheme` accepts the built-in `defaultLightTheme`/`defaultDarkTheme`, a raw `TokenTheme` (a map of `.typ-*` selectors to styles), or **any CodeMirror `HighlightStyle`** - including the `TagStyle[]` that [`@uiw` themes](https://www.npmjs.com/package/@uiw/codemirror-themes-all) export. Styles are bridged to the `typ-*` classes via `tokenThemeFromHighlightStyle`, so the whole CodeMirror theme ecosystem works for free. The token palette carries only colors; the editor's dark/light base belongs to your chrome theme (`oneDark`, `githubLight`, ...).
+
+### Switching themes live
+
+`typstThemes` bundles a named selection behind one compartment with a single typed `set(view, key)` switch point. Each entry is a `{ editor?, tokens }` descriptor (the `tokens` style is bridged for you, `editor` is the optional chrome theme) or a ready extension:
+
+```ts
+import {
+  githubDark,
+  githubDarkStyle,
+  githubLight,
+  githubLightStyle,
+} from "@uiw/codemirror-theme-github";
+import { createTypstSetup, typstThemes } from "@vedivad/codemirror-typst";
+
+const themes = typstThemes(
+  {
+    light: { editor: githubLight, tokens: githubLightStyle },
+    dark: { editor: githubDark, tokens: githubDarkStyle },
+  },
+  "light",
+);
+
+const setup = createTypstSetup({
+  project,
+  sync: "editor-driven",
+  theme: themes.extension,
+});
+
+// later, e.g. on a light/dark toggle:
+themes.set(view, "dark");
+```
+
+Two entries make a toggle, more make a picker - the selection and the active key are yours. `set` dispatches a reconfigure to the given view; CodeMirror compartments are per editor state, so in a multi-view app re-apply the active key when a view mounts. (Or skip `typstThemes` and put a `typstTheme(...)` in your own `Compartment`.)
 
 ## External sync / Y.js
 
@@ -182,6 +209,8 @@ For multi-file collaboration, keep a Y.js map of paths to documents and sync it 
 
 `createTypstSetup` composes the default bundle. Use the pieces directly for custom UI, external sync, or a subset of features:
 
+- **`typstHighlighting({ project, debounceMs? })`** - the syntax-highlighting decorations (theme-independent); pair it with a `typstTheme(...)` for the colors.
+- **`typstTheme(themeOrStyle)`** - the `typ-*` token palette as a theme extension (see [Theming](#theming)).
 - **`createTypstCompileSync({ project })`** - mirrors the editor's content into the project's VFS on mount and on every change (the project auto-schedules the compile).
 - **`createTypstDiagnostics({ project })`** - subscribes to `project.onCompile` and dispatches diagnostics for the active file.
 - **`typstCompletionSource({ project })`** - plugs Typst completions into your own `autocompletion(...)`.
@@ -195,11 +224,16 @@ import {
   createTypstDiagnostics,
   createTypstFormatter,
   createTypstHover,
+  defaultLightTheme,
   typstCompletionSource,
   typstFilePath,
+  typstHighlighting,
+  typstTheme,
 } from "@vedivad/codemirror-typst";
 
 const extensions = [
+  typstHighlighting({ project }),
+  typstTheme(defaultLightTheme),
   createTypstCompileSync({ project }),
   createTypstDiagnostics({ project }),
   autocompletion({ override: [typstCompletionSource({ project })] }),
@@ -211,7 +245,7 @@ const extensions = [
 
 ## Styling
 
-The package ships no CSS, token colors come from the highlighting palette (or your overrides of the `typ-*` classes), and the hover tooltip exposes two stable hooks:
+The package ships no CSS, token colors come from the `typstTheme` you install (or your own CSS targeting the `typ-*` classes), and the hover tooltip exposes two stable hooks:
 
 - `.cm-typst-hover`, the tooltip container (a plain-text description, or a code value).
 - `.cm-typst-hover-code`, the syntax-highlighted code block inside a code hover.

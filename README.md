@@ -17,21 +17,14 @@ Typst editor components for the web, CodeMirror 6 extensions with compilation, a
 ```ts
 import { basicSetup, EditorView } from "codemirror";
 import { EditorState } from "@codemirror/state";
-import {
-  createTypstHighlighting,
-  createTypstSetup,
-  TypstProject,
-} from "@vedivad/codemirror-typst";
+import { createTypstSetup, TypstProject } from "@vedivad/codemirror-typst";
 
 const project = await TypstProject.create();
 await project.setText("/main.typ", "= Hello, Typst!");
 
-const highlighting = createTypstHighlighting({ project, theme: "dark" });
-const setup = createTypstSetup({
-  project,
-  sync: "editor-driven",
-  highlighting,
-});
+// Bundles highlighting (colored out of the box), diagnostics, completion,
+// hover, and compile-on-edit. Override colors with the `theme` option.
+const setup = createTypstSetup({ project, sync: "editor-driven" });
 
 new EditorView({
   parent: document.querySelector("#app")!,

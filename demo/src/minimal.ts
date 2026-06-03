@@ -1,10 +1,5 @@
 import { EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
-import {
-  createTypstHighlighting,
-  createTypstSetup,
-  TypstProject,
-} from "@vedivad/codemirror-typst";
+import { createTypstSetup, TypstProject } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
 
 const editorEl = document.getElementById("editor")!;
@@ -20,18 +15,16 @@ project.onCompile(async (result) => {
   previewEl.innerHTML = `<div class="svg-container">${svg ?? ""}</div>`;
 });
 
-const highlighting = createTypstHighlighting({ project, theme: "dark" });
 const typstSetup = createTypstSetup({
   project,
   sync: "editor-driven",
-  highlighting,
 });
 
 new EditorView({
   parent: editorEl,
   state: EditorState.create({
     doc: `= Hello, Typst!\n\nType to compile. Errors show in the gutter.\n\n#let greet(name) = [Hello, #name!]\n\n#greet("world")\n`,
-    extensions: [basicSetup, oneDark, ...typstSetup],
+    extensions: [basicSetup, ...typstSetup],
   }),
 });
 

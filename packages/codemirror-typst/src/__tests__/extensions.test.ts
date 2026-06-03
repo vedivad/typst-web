@@ -12,8 +12,20 @@ vi.mock("../hover.js", () => ({
   createTypstHover: vi.fn(() => ({ kind: "hover" })),
 }));
 
+vi.mock("../highlight.js", () => ({
+  typstHighlighting: vi.fn(() => ({ kind: "highlight" })),
+  typstTheme: vi.fn(() => ({ kind: "theme" })),
+  // index.js re-exports these; provide them so the re-export resolves.
+  defaultDarkTheme: { dark: true },
+  defaultLightTheme: { light: true },
+}));
+
 import { createTypstCompileSync } from "../compile-sync.js";
 import { createTypstDiagnostics } from "../diagnostics-plugin.js";
+import {
+  typstHighlighting as typstHighlightingImpl,
+  typstTheme as typstThemeImpl,
+} from "../highlight.js";
 import { createTypstHover as createTypstHoverImpl } from "../hover.js";
 import {
   createTypstHover,
@@ -24,12 +36,6 @@ import {
 function mockProject() {
   return {} as never;
 }
-
-const stubHighlighting = {
-  extension: { kind: "highlight" },
-  theme: "dark",
-  setTheme: vi.fn(),
-};
 
 describe("createTypstSetup", () => {
   it('includes compile sync when sync is "editor-driven"', () => {
@@ -65,18 +71,36 @@ describe("createTypstSetup", () => {
     expect(createTypstHoverImpl).toHaveBeenCalledWith({ project });
   });
 
-  it("wires the highlighting controller's extension into the bundle", () => {
-    vi.mocked(createTypstHoverImpl).mockClear();
+  it("always includes highlighting decorations", () => {
+    vi.mocked(typstHighlightingImpl).mockClear();
     const project = mockProject();
+    const extensions = createTypstSetup({ project, sync: "editor-driven" });
+
+    expect(typstHighlightingImpl).toHaveBeenCalledWith({ project });
+    expect(extensions).toContainEqual({ kind: "highlight" });
+  });
+
+  it("defaults to a light token theme when none is given", () => {
+    vi.mocked(typstThemeImpl).mockClear();
+    const project = mockProject();
+    const extensions = createTypstSetup({ project, sync: "external" });
+
+    expect(typstThemeImpl).toHaveBeenCalledWith({ light: true });
+    expect(extensions).toContainEqual({ kind: "theme" });
+  });
+
+  it("uses a provided theme instead of the default", () => {
+    vi.mocked(typstThemeImpl).mockClear();
+    const project = mockProject();
+    const theme = { kind: "custom-theme" };
     const extensions = createTypstSetup({
       project,
-      sync: "editor-driven",
-      highlighting: stubHighlighting as never,
+      sync: "external",
+      theme: theme as never,
     });
 
-    // Highlighting is an independent extension; hover no longer depends on it.
-    expect(extensions).toContain(stubHighlighting.extension);
-    expect(createTypstHoverImpl).toHaveBeenCalledWith({ project });
+    expect(typstThemeImpl).not.toHaveBeenCalled();
+    expect(extensions).toContainEqual(theme);
   });
 });
 

@@ -14,8 +14,11 @@ import {
 import { typstFilePath } from "./facets.js";
 import type { TypstFormatterOptions } from "./formatter.js";
 import { createTypstFormatter } from "./formatter.js";
-import type { TypstHighlightingController } from "./highlight.js";
-import { createTypstHighlighting } from "./highlight.js";
+import {
+  defaultLightTheme,
+  typstHighlighting,
+  typstTheme,
+} from "./highlight.js";
 import type { TypstHoverOptions } from "./hover.js";
 import { createTypstHover } from "./hover.js";
 
@@ -39,8 +42,17 @@ export type {
 export { normalizePath, TypstProject } from "@vedivad/typst-web-service";
 export type {
   TokenTheme,
-  TypstHighlightingController,
   TypstHighlightingOptions,
+  TypstThemeDescriptor,
+  TypstThemes,
+  TypstThemeSpec,
+} from "./highlight.js";
+export {
+  defaultDarkTheme,
+  defaultLightTheme,
+  typstHighlighting,
+  typstTheme,
+  typstThemes,
 } from "./highlight.js";
 export type {
   TypstCompletionOptions,
@@ -51,7 +63,6 @@ export {
   createTypstCompileSync,
   createTypstDiagnostics,
   createTypstFormatter,
-  createTypstHighlighting,
   createTypstHover,
   diagnosticLocation,
   groupDiagnosticsByFile,
@@ -62,6 +73,7 @@ export {
 export type { CompileSyncOptions } from "./compile-sync.js";
 export type { DiagnosticLocation } from "./diagnostics-utils.js";
 export type { DiagnosticsPluginOptions } from "./diagnostics-plugin.js";
+export { tokenThemeFromHighlightStyle } from "./lezer-theme.js";
 
 // ---------------------------------------------------------------------------
 // High-level API: createTypstSetup
@@ -82,8 +94,13 @@ export interface TypstSetupOptions {
    *   setup omits the editor->project sync to avoid double-writes.
    */
   sync: "editor-driven" | "external";
-  /** Highlighting controller from `createTypstHighlighting()`. Omit to skip. */
-  highlighting?: TypstHighlightingController;
+  /**
+   * Token theme included in the bundle. Defaults to
+   * `typstTheme(defaultLightTheme)` so highlighting is colored out of the box.
+   * Pass a `typstTheme(...)` for a different palette, or a
+   * `typstThemes(...).extension` to switch themes live.
+   */
+  theme?: Extension;
   /** Formatter config (the project is taken from this setup). Omit to disable. */
   formatter?: Omit<TypstFormatterOptions, "project">;
 }
@@ -93,10 +110,12 @@ export interface TypstSetupOptions {
  * compile-on-edit, diagnostics, autocompletion, hover, and (opt-in) the
  * formatter. The editor's file path is read from the `typstFilePath` facet.
  *
+ * Highlighting (decorations + a default light token theme) is included; pass
+ * `theme` to override the palette or to switch themes live (see `typstThemes`).
+ *
  * ```ts
  * const project = await TypstProject.create();
- * const highlighting = createTypstHighlighting({ project, theme: "dark" });
- * const setup = createTypstSetup({ project, sync: "editor-driven", highlighting });
+ * const setup = createTypstSetup({ project, sync: "editor-driven" });
  * const state = EditorState.create({
  *   doc,
  *   extensions: [basicSetup, ...setup, typstFilePath.of("/main.typ")],
@@ -104,9 +123,15 @@ export interface TypstSetupOptions {
  * ```
  */
 export function createTypstSetup(options: TypstSetupOptions): Extension[] {
-  const { project, highlighting, formatter, sync } = options;
+  const {
+    project,
+    theme = typstTheme(defaultLightTheme),
+    formatter,
+    sync,
+  } = options;
   return [
-    ...(highlighting ? [highlighting.extension] : []),
+    typstHighlighting({ project }),
+    theme,
     lintGutter(),
     ...(sync === "editor-driven" ? [createTypstCompileSync({ project })] : []),
     createTypstDiagnostics({ project }),

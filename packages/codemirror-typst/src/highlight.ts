@@ -22,7 +22,9 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
+import type { HighlightStyle, TagStyle } from "@codemirror/language";
 import type { HlSpan, TypstProject } from "@vedivad/typst-web-service";
+import { tokenThemeFromHighlightStyle } from "./lezer-theme.js";
 
 /** A token theme: a CodeMirror style spec per Typst `typ-*` class selector. */
 export type TokenTheme = Record<string, Record<string, string>>;
@@ -30,22 +32,8 @@ export type TokenTheme = Record<string, Record<string, string>>;
 export interface TypstHighlightingOptions {
   /** Project whose worker parses the buffer. Share it across editors. */
   project: TypstProject;
-  /** Initial theme alias. Defaults to "dark". */
-  theme?: string;
-  /**
-   * Theme palettes by alias. Defaults to the built-in `light` and `dark`. Each
-   * maps a `.typ-*` class selector to a CodeMirror style spec. Consumers can also
-   * ignore this and style the `typ-*` classes from their own CSS.
-   */
-  themes?: Record<string, TokenTheme>;
   /** Debounce (ms) before re-highlighting after an edit or scroll. Default: 30. */
   debounceMs?: number;
-}
-
-export interface TypstHighlightingController {
-  extension: Extension;
-  readonly theme: string;
-  setTheme(view: EditorView, theme: string): void;
 }
 
 /**
@@ -150,7 +138,7 @@ class HighlightPlugin implements PluginValue {
 // the GitHub themes; strong/emph/heading carry weight/style, not just hue. Bare
 // `.typ-*` selectors so the cascade also reaches highlighted code in hover
 // tooltips, which render inside the editor's themed root.
-const DARK: TokenTheme = {
+export const defaultDarkTheme: TokenTheme = {
   ".typ-comment": { color: "#8b949e", fontStyle: "italic" },
   ".typ-punct": { color: "#c9d1d9" },
   ".typ-escape": { color: "#79c0ff" },
@@ -168,13 +156,13 @@ const DARK: TokenTheme = {
   ".typ-key": { color: "#ff7b72" },
   ".typ-op": { color: "#ff7b72" },
   ".typ-num": { color: "#79c0ff" },
-  ".typ-str": { color: "#a5d6ff" },
+  ".typ-str": { color: "#7ee787" },
   ".typ-func": { color: "#d2a8ff" },
   ".typ-pol": { color: "#ffa657" },
   ".typ-error": { color: "#f85149" },
 };
 
-const LIGHT: TokenTheme = {
+export const defaultLightTheme: TokenTheme = {
   ".typ-comment": { color: "#6e7781", fontStyle: "italic" },
   ".typ-punct": { color: "#24292f" },
   ".typ-escape": { color: "#0550ae" },
@@ -192,60 +180,146 @@ const LIGHT: TokenTheme = {
   ".typ-key": { color: "#cf222e" },
   ".typ-op": { color: "#cf222e" },
   ".typ-num": { color: "#0550ae" },
-  ".typ-str": { color: "#0a3069" },
+  ".typ-str": { color: "#116329" },
   ".typ-func": { color: "#8250df" },
   ".typ-pol": { color: "#953800" },
   ".typ-error": { color: "#cf222e" },
 };
 
-const DEFAULT_THEMES: Record<string, TokenTheme> = { light: LIGHT, dark: DARK };
-
 /**
- * typst-syntax editor highlighting. Returns a controller whose `extension` you
- * spread into the editor; `setTheme` swaps the token palette live. Synchronous:
- * the worker does the parsing, so there is nothing to preload here.
+ * typst-syntax editor highlighting: the decorations only, theme-independent.
+ * The worker does the parsing, so there is nothing to preload. Pair it with a
+ * {@link typstTheme} for the token colors (typically in a `Compartment` so you
+ * can swap themes live).
  *
  * ```ts
  * const project = await TypstProject.create();
- * const highlighting = createTypstHighlighting({ project, theme: "dark" });
- * EditorState.create({ doc, extensions: [basicSetup, ...highlighting.extension] });
+ * const theme = new Compartment();
+ * EditorState.create({
+ *   doc,
+ *   extensions: [
+ *     basicSetup,
+ *     typstHighlighting({ project }),
+ *     oneDark, // chrome theme owns the dark/light base
+ *     theme.of(typstTheme(defaultDarkTheme)),
+ *   ],
+ * });
+ * // later: view.dispatch({ effects: theme.reconfigure(typstTheme(defaultLightTheme)) });
  * ```
  */
-export function createTypstHighlighting(
+export function typstHighlighting(
   options: TypstHighlightingOptions,
-): TypstHighlightingController {
+): Extension {
   const { project, debounceMs = 30 } = options;
-  const themes = options.themes ?? DEFAULT_THEMES;
+  return [
+    highlightField,
+    ViewPlugin.define((view) => new HighlightPlugin(view, project, debounceMs)),
+  ];
+}
 
-  // Resolve an alias to its theme extension, throwing if it is not a known alias.
-  const themeFor = (alias: string): Extension => {
-    const palette = themes[alias];
-    if (!palette) {
-      throw new Error(
-        `theme alias "${alias}" not found in themes (${Object.keys(themes).join(", ")})`,
+/**
+ * The Typst token palette as a CodeMirror theme extension: just the `typ-*`
+ * color rules. Accepts a {@link TokenTheme}, any CodeMirror `HighlightStyle`, or
+ * its raw `TagStyle[]` specs (the form `@uiw` themes export), styles are bridged
+ * via {@link tokenThemeFromHighlightStyle}, so the whole CodeMirror theme
+ * ecosystem works. Drop it in a `Compartment` - typically next to
+ * your editor chrome theme - and reconfigure to switch. The editor's dark/light
+ * base is the chrome theme's job (`oneDark`, `githubLight`, ...), so this sets no
+ * dark flag of its own.
+ */
+export function typstTheme(
+  theme: TokenTheme | HighlightStyle | readonly TagStyle[],
+): Extension {
+  // A TokenTheme is a plain `.typ-*` -> spec object; a HighlightStyle has a
+  // `.style()` method; a TagStyle[] is the raw specs (as `@uiw` themes export).
+  const isPalette =
+    !Array.isArray(theme) &&
+    typeof (theme as HighlightStyle).style !== "function";
+  const palette = isPalette
+    ? (theme as TokenTheme)
+    : tokenThemeFromHighlightStyle(
+        theme as HighlightStyle | readonly TagStyle[],
       );
-    }
-    return EditorView.theme(palette, { dark: alias === "dark" });
-  };
+  return EditorView.theme(palette);
+}
 
-  let currentAlias =
-    options.theme ?? (themes.dark ? "dark" : Object.keys(themes)[0]);
-  const themeCompartment = new Compartment();
-  const initialTheme = themeFor(currentAlias); // validates the initial alias
+/**
+ * A descriptor for one theme entry: an optional editor chrome theme paired with
+ * a `tokens` style that is bridged to Typst's `typ-*` colors via {@link typstTheme}.
+ */
+export interface TypstThemeDescriptor {
+  /** Editor chrome theme (background, gutter, selection), e.g. `githubDark`. */
+  editor?: Extension;
+  /** Token style, bridged to a `typ-*` palette. */
+  tokens: TokenTheme | HighlightStyle | readonly TagStyle[];
+}
 
-  const plugin = ViewPlugin.define(
-    (view) => new HighlightPlugin(view, project, debounceMs),
+/** One entry in a {@link typstThemes} selection: a ready Extension, or a
+ *  {@link TypstThemeDescriptor} whose `tokens` are bridged for you. */
+export type TypstThemeSpec = Extension | TypstThemeDescriptor;
+
+/** A live-switchable selection of editor themes, backed by a `Compartment`. */
+export interface TypstThemes<K extends string> {
+  /** Add this to the editor (or pass it as `createTypstSetup`'s `theme`). */
+  readonly extension: Extension;
+  /** Switch `view` to the theme registered under `key`. */
+  set(view: EditorView, key: K): void;
+}
+
+function isThemeDescriptor(spec: TypstThemeSpec): spec is TypstThemeDescriptor {
+  return (
+    typeof spec === "object" &&
+    spec !== null &&
+    !Array.isArray(spec) &&
+    "tokens" in spec
   );
+}
 
+// Expand a spec into a plain Extension: a descriptor becomes `[editor, tokens]`
+// with the token style bridged; a ready Extension passes through.
+function resolveThemeSpec(spec: TypstThemeSpec): Extension {
+  return isThemeDescriptor(spec)
+    ? [spec.editor ?? [], typstTheme(spec.tokens)]
+    : spec;
+}
+
+/**
+ * Bundle a named selection of editor themes behind one `Compartment`, with a
+ * single `set(view, key)` switch point. The consumer owns the selection, two
+ * entries for a light/dark toggle, more for a picker. Each entry is a
+ * {@link TypstThemeDescriptor} (`{ editor?, tokens }`, with `tokens` bridged for
+ * you) or a ready `Extension`.
+ *
+ * ```ts
+ * const themes = typstThemes(
+ *   {
+ *     light: { editor: githubLight, tokens: githubLightStyle },
+ *     dark: { editor: githubDark, tokens: githubDarkStyle },
+ *   },
+ *   "light",
+ * );
+ * // include themes.extension (or pass it as createTypstSetup's `theme`);
+ * // toggle with themes.set(view, "dark").
+ * ```
+ *
+ * `set` is per-view (it dispatches a reconfigure to that editor), so a
+ * multi-view app re-applies the active key when a view mounts. There is no hidden
+ * "current" state, track the active key yourself.
+ */
+export function typstThemes<const K extends string>(
+  themes: Record<K, TypstThemeSpec>,
+  initial: NoInfer<K>,
+): TypstThemes<K> {
+  const resolved = Object.fromEntries(
+    Object.entries<TypstThemeSpec>(themes).map(([key, spec]) => [
+      key,
+      resolveThemeSpec(spec),
+    ]),
+  ) as Record<K, Extension>;
+  const compartment = new Compartment();
   return {
-    extension: [highlightField, plugin, themeCompartment.of(initialTheme)],
-    get theme() {
-      return currentAlias;
-    },
-    setTheme(view, alias) {
-      const theme = themeFor(alias); // validates before mutating state
-      currentAlias = alias;
-      view.dispatch({ effects: themeCompartment.reconfigure(theme) });
-    },
+    extension: compartment.of(resolved[initial]),
+    set: (view, key) =>
+      view.dispatch({ effects: compartment.reconfigure(resolved[key]) }),
   };
 }

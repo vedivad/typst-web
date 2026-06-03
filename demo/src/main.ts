@@ -1,10 +1,15 @@
-import { Compartment, EditorState } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
+import { EditorState } from "@codemirror/state";
 import {
-  createTypstHighlighting,
+  githubDark,
+  githubDarkStyle,
+  githubLight,
+  githubLightStyle,
+} from "@uiw/codemirror-theme-github";
+import {
   createTypstSetup,
   TypstProject,
   typstFilePath,
+  typstThemes,
 } from "@vedivad/codemirror-typst";
 import { basicSetup, EditorView } from "codemirror";
 import { updateDiagnostics } from "./diagnostics";
@@ -52,25 +57,30 @@ project.onCompile(async (result) => {
 
 // --- Editor extensions ---
 
-const highlighting = createTypstHighlighting({ project, theme: colorTheme });
+// A light/dark selection from the GitHub themes (chrome + token HighlightStyle
+// via the lezer-tag bridge), bound into the setup and toggled in syncTheme().
+const theme = typstThemes(
+  {
+    light: { editor: githubLight, tokens: githubLightStyle },
+    dark: { editor: githubDark, tokens: githubDarkStyle },
+  },
+  "light",
+);
+
 const typstSetup = createTypstSetup({
   project,
   sync: "editor-driven",
-  highlighting,
+  theme: theme.extension,
   formatter: { formatOnSave: true },
 });
 
-const editorTheme = new Compartment();
-const sharedExtensions = [basicSetup, editorTheme.of([]), ...typstSetup];
+const sharedExtensions = [basicSetup, ...typstSetup];
 
 function syncTheme(view: EditorView) {
   document.documentElement.dataset.theme = colorTheme;
   themeToggleBtn.textContent = colorTheme === "dark" ? "Dark" : "Light";
   themeToggleBtn.setAttribute("aria-pressed", String(colorTheme === "dark"));
-  view.dispatch({
-    effects: editorTheme.reconfigure(colorTheme === "dark" ? oneDark : []),
-  });
-  highlighting.setTheme(view, colorTheme);
+  theme.set(view, colorTheme);
 }
 
 const states: Record<string, EditorState> = Object.fromEntries(

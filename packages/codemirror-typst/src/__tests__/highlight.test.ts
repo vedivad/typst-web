@@ -1,12 +1,18 @@
+import { defaultHighlightStyle, HighlightStyle } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import type { HlSpan } from "@vedivad/typst-web-service";
 import { describe, expect, it } from "vitest";
 import {
-  createTypstHighlighting,
   decorationsFor,
+  defaultDarkTheme,
+  defaultLightTheme,
   highlightField,
   setHighlights,
+  typstHighlighting,
+  typstTheme,
+  typstThemes,
 } from "../highlight.js";
+import { tokenThemeFromHighlightStyle } from "../lezer-theme.js";
 
 const project = {} as never; // the controller only stores it; no calls in these tests
 
@@ -74,22 +80,87 @@ describe("highlightField", () => {
   });
 });
 
-describe("createTypstHighlighting", () => {
-  it("defaults to the dark theme and exposes a controller", () => {
-    const controller = createTypstHighlighting({ project });
-    expect(controller.theme).toBe("dark");
-    expect(Array.isArray(controller.extension)).toBe(true);
+describe("typstHighlighting", () => {
+  it("installs the highlight field (decorations only, theme-independent)", () => {
+    const state = EditorState.create({
+      doc: "= Title",
+      extensions: [typstHighlighting({ project })],
+    });
+    // Field present; empty until the worker responds (no view mounted here).
+    expect(state.field(highlightField).size).toBe(0);
+  });
+});
+
+describe("typstTheme", () => {
+  it("accepts a built-in TokenTheme", () => {
+    const state = EditorState.create({
+      doc: "x",
+      extensions: [typstTheme(defaultDarkTheme)],
+    });
+    expect(state).toBeTruthy();
   });
 
-  it("honours an initial theme alias", () => {
-    expect(createTypstHighlighting({ project, theme: "light" }).theme).toBe(
+  it("accepts any HighlightStyle (the lezer-tag bridge)", () => {
+    const state = EditorState.create({
+      doc: "x",
+      extensions: [typstTheme(defaultHighlightStyle)],
+    });
+    expect(state).toBeTruthy();
+  });
+});
+
+describe("typstThemes", () => {
+  it("installs the initial theme and exposes a typed set()", () => {
+    const themes = typstThemes(
+      {
+        light: typstTheme(defaultLightTheme),
+        dark: typstTheme(defaultDarkTheme),
+      },
       "light",
     );
+    // The compartment extension is usable in a state (initial theme installed).
+    const state = EditorState.create({
+      doc: "x",
+      extensions: [themes.extension],
+    });
+    expect(state).toBeTruthy();
+    expect(themes.set).toBeTypeOf("function");
   });
 
-  it("rejects an unknown theme alias", () => {
-    expect(() => createTypstHighlighting({ project, theme: "nope" })).toThrow(
-      /not found in themes/,
+  it("accepts { editor?, tokens } descriptors (bridging the tokens)", () => {
+    const themes = typstThemes(
+      {
+        light: { tokens: defaultLightTheme },
+        dark: { editor: [], tokens: defaultHighlightStyle },
+      },
+      "light",
     );
+    const state = EditorState.create({
+      doc: "x",
+      extensions: [themes.extension],
+    });
+    expect(state).toBeTruthy();
+  });
+});
+
+describe("tokenThemeFromHighlightStyle", () => {
+  it("derives a typ-* palette from a HighlightStyle's specs", () => {
+    const theme = tokenThemeFromHighlightStyle(defaultHighlightStyle);
+    // The default style colors keywords and strings, so the bridged Typst
+    // classes that map to those tags pick up a color.
+    expect(theme[".typ-key"]?.color).toBeTruthy();
+    expect(theme[".typ-str"]?.color).toBeTruthy();
+    expect(theme[".typ-comment"]?.color).toBeTruthy();
+  });
+
+  it("accepts raw TagStyle specs (the form @uiw themes export)", () => {
+    const fromStyle = tokenThemeFromHighlightStyle(defaultHighlightStyle);
+    const fromSpecs = tokenThemeFromHighlightStyle(defaultHighlightStyle.specs);
+    expect(fromSpecs).toEqual(fromStyle);
+  });
+
+  it("omits Typst classes the style leaves unstyled", () => {
+    const empty = HighlightStyle.define([]);
+    expect(tokenThemeFromHighlightStyle(empty)).toEqual({});
   });
 });
