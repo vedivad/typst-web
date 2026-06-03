@@ -29,7 +29,7 @@
     },
     "packages/codemirror-typst": {
       "name": "@vedivad/codemirror-typst",
-      "version": "0.17.1",
+      "version": "0.17.2",
       "dependencies": {
         "@vedivad/typst-web-service": "workspace:^",
       },
@@ -50,7 +50,7 @@
     },
     "packages/typst-web-service": {
       "name": "@vedivad/typst-web-service",
-      "version": "0.17.1",
+      "version": "0.17.2",
       "dependencies": {
         "comlink": "^4.4.2",
         "fflate": "^0.8.2",
@@ -64,7 +64,7 @@
     },
     "packages/typst-web-yjs": {
       "name": "@vedivad/typst-web-yjs",
-      "version": "0.17.1",
+      "version": "0.17.2",
       "devDependencies": {
         "@vedivad/typst-web-service": "workspace:^",
         "tsup": "^8.0.0",
@@ -73,7 +73,7 @@
         "yjs": "^13.6.0",
       },
       "peerDependencies": {
-        "@vedivad/typst-web-service": "^0.17.1",
+        "@vedivad/typst-web-service": "^0.17.2",
         "yjs": "^13.6.0",
       },
     },
