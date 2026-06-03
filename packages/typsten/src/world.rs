@@ -95,7 +95,7 @@ impl ProjectWorld {
 
     /// Register every face in a font file (TTF/OTF, or a TTC collection),
     /// extending the embedded default fonts. Use it to add families the engine
-    /// does not bundle - other scripts (CJK), or a brand/custom font.
+    /// does not bundle, such as other scripts (CJK) or a brand font.
     pub fn add_font(&mut self, bytes: Vec<u8>) {
         let buffer = Bytes::new(bytes);
         for font in Font::iter(buffer) {
@@ -117,12 +117,12 @@ impl ProjectWorld {
     }
 
     /// Cache a freshly compiled document so its pages can be rendered on demand.
-    pub(crate) fn cache_document(&self, document: PagedDocument) {
+    pub fn cache_document(&self, document: PagedDocument) {
         *self.document.lock() = Some(document);
     }
 
     /// Width and height (in points) of each page of the cached document.
-    pub(crate) fn page_sizes(&self) -> Vec<(f64, f64)> {
+    pub fn page_sizes(&self) -> Vec<(f64, f64)> {
         self.document.lock().as_ref().map_or_else(Vec::new, |doc| {
             doc.pages
                 .iter()
@@ -133,13 +133,13 @@ impl ProjectWorld {
 
     /// Render a single page of the cached document to SVG, or `None` if there is
     /// no cached document or the index is out of range.
-    pub(crate) fn render_page(&self, index: usize) -> Option<String> {
+    pub fn render_page(&self, index: usize) -> Option<String> {
         self.document.lock().as_ref()?.pages.get(index).map(svg)
     }
 
     /// Render pages `[start, end)` of the cached document to SVG, clamping `end`
     /// to the page count. Empty if there is no document or the range is empty.
-    pub(crate) fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
+    pub fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
         let document = self.document.lock();
         let Some(document) = document.as_ref() else {
             return Vec::new();
@@ -155,14 +155,14 @@ impl ProjectWorld {
     /// document or PDF generation fails. PDF export of an already-laid-out
     /// document effectively never fails, so an error is mapped to `None` rather
     /// than surfaced - keeping the boundary as simple as `render_page`.
-    pub(crate) fn export_pdf(&self) -> Option<Vec<u8>> {
+    pub fn export_pdf(&self) -> Option<Vec<u8>> {
         let document = self.document.lock();
         pdf(document.as_ref()?, &PdfOptions::default()).ok()
     }
 
     /// `(full_parses, incremental_edits)` since construction. Test instrumentation.
     #[cfg(test)]
-    pub(crate) fn parse_counts(&self) -> (u32, u32) {
+    pub fn parse_counts(&self) -> (u32, u32) {
         (
             self.full_parses.load(Ordering::Relaxed),
             self.incremental_edits.load(Ordering::Relaxed),

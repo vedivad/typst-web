@@ -93,7 +93,7 @@ export function byteOffsetsToCm(text: string, offsets: number[]): number[] {
 
 /**
  * Convert a batch of UTF-16 (CodeMirror) offsets to UTF-8 byte offsets in one
- * pass - the batched, ASCII-fast-path counterpart to `cmOffsetToByte` (which
+ * pass. The batched, ASCII-fast-path counterpart to `cmOffsetToByte` (which
  * re-encodes a prefix per call). Used for the highlight viewport bounds.
  */
 export function cmOffsetsToByte(text: string, offsets: number[]): number[] {

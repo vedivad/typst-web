@@ -58,7 +58,7 @@ Rendering is on demand so a viewer can virtualize: `renderPage(index)` returns o
 
 ## Fonts
 
-The engine bundles Typst's default fonts (Libertinus Serif for body, New Computer Modern Math for equations, DejaVu Sans Mono for raw/code), so documents render out of the box. Use `addFont` to register families the engine does not ship - other scripts (CJK), or a brand/custom font:
+The engine bundles Typst's default fonts (Libertinus Serif for body, New Computer Modern Math for equations, DejaVu Sans Mono for raw/code), so documents render out of the box. Use `addFont` to register families the engine does not ship, such as other scripts (CJK) or a brand font:
 
 ```ts
 const bytes = new Uint8Array(await (await fetch(fontUrl)).arrayBuffer());

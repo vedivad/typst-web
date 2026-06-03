@@ -132,7 +132,7 @@ class HighlightPlugin implements PluginValue {
     }
     // Drop stale results: a newer request superseded this one, the plugin was
     // destroyed, or the document changed since the request (offsets no longer
-    // valid - the edit already scheduled a fresh request).
+    // valid, since the edit already scheduled a fresh request).
     if (
       this.destroyed ||
       id !== this.requestId ||

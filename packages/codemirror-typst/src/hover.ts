@@ -15,8 +15,8 @@ export interface TypstHoverOptions {
  * typsten's `Hover` (from `typst-ide`) is one of two plain shapes: a `code`
  * snippet (a Typst signature/value) or a `text` sentence. The code snippet is
  * syntax-highlighted via the same typst-syntax engine as the editor, so it
- * shares the `typ-*` token palette; the text is plain (not markdown - that was
- * a tinymist-era artifact) and rendered verbatim.
+ * shares the `typ-*` token palette; the text is plain (not markdown, a
+ * tinymist-era artifact) and rendered verbatim.
  */
 export function createTypstHover(options: TypstHoverOptions): Extension {
   return hoverTooltip(async (view, pos): Promise<Tooltip | null> => {

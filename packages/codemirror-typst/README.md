@@ -1,6 +1,6 @@
 # @vedivad/codemirror-typst
 
-CodeMirror 6 extensions for Typst - syntax highlighting, diagnostics, autocompletion, hover tooltips, formatting, and live preview, all powered by a single Typst engine compiled to WebAssembly.
+CodeMirror 6 extensions for Typst: syntax highlighting, diagnostics, autocompletion, hover tooltips, formatting, and live preview, all powered by a single Typst engine compiled to WebAssembly.
 
 Re-exports everything from `@vedivad/typst-web-service`, so you only need this one dependency.
 
@@ -12,7 +12,7 @@ npm install @vedivad/codemirror-typst
 
 ## Prerequisites
 
-A bundler with WebAssembly support - e.g. [Vite](https://vite.dev) with [`vite-plugin-wasm`](https://github.com/nicolo-ribaudo/vite-plugin-wasm). The Typst engine wasm ships inside `@vedivad/typst-web-service` and is loaded into a Web Worker at runtime; there are no separate compiler, renderer, analyzer, or formatter binaries to wire up. Completions, hover, diagnostics, and formatting all come from that one engine.
+A bundler with WebAssembly support, e.g. [Vite](https://vite.dev) with [`vite-plugin-wasm`](https://github.com/nicolo-ribaudo/vite-plugin-wasm). The Typst engine wasm ships inside `@vedivad/typst-web-service` and is loaded into a Web Worker at runtime; there are no separate compiler, renderer, analyzer, or formatter binaries to wire up. Completions, hover, diagnostics, and formatting all come from that one engine.
 
 The engine bundles default body, math, and monospace fonts, so documents render out of the box. Add families it does not ship (e.g. CJK or a brand font) with `project.addFont(bytes)` (see the [service README](../typst-web-service/README.md#fonts)).
 
@@ -56,7 +56,7 @@ new EditorView({
 
 ```ts
 project.onCompile(async (result) => {
-  // result.diagnostics - errors/warnings; result.pages - per-page dimensions
+  // result.diagnostics: errors/warnings. result.pages: per-page dimensions
   const pages = await project.renderedPages(0, result.pages.length);
   document.querySelector("#preview")!.innerHTML = pages
     .map((p) => `<div class="page">${p.svg}</div>`)
@@ -90,7 +90,7 @@ VFS mutations (`setText`, `setMany`, `setBinary`, `remove`, `clear`, entry chang
 
 ## Multi-file editor
 
-Attach the `typstFilePath` facet per-editor so each `EditorState` carries its own path. Switching tabs with `view.setState(states[path])` propagates the new path automatically - no external `activeFile` variable required.
+Attach the `typstFilePath` facet per-editor so each `EditorState` carries its own path. Switching tabs with `view.setState(states[path])` propagates the new path automatically, so no external `activeFile` variable is required.
 
 ```ts
 import { createTypstSetup, typstFilePath } from "@vedivad/codemirror-typst";
@@ -115,10 +115,10 @@ const states = Object.fromEntries(
 
 `TypstProject` auto-compiles after every VFS mutation; the editor plugin only mirrors CodeMirror edits into `setText`. Configure the schedule once per project:
 
-| Option                   | Default | Behavior                                                                                                  |
-| ------------------------ | ------- | --------------------------------------------------------------------------------------------------------- |
-| `autoCompile.debounceMs` | `0`     | Debounce - resets on every mutation, fires once mutations pause. `0` means compile on the next macrotask. |
-| `autoCompile.maxWaitMs`  | `0`     | Max-wait cap - forces a compile during sustained mutation bursts. Only effective when `debounceMs` > 0.   |
+| Option                   | Default | Behavior                                                                                                 |
+| ------------------------ | ------- | -------------------------------------------------------------------------------------------------------- |
+| `autoCompile.debounceMs` | `0`     | Debounce. Resets on every mutation, fires once mutations pause. `0` means compile on the next macrotask. |
+| `autoCompile.maxWaitMs`  | `0`     | Max-wait cap. Forces a compile during sustained mutation bursts. Only effective when `debounceMs` > 0.   |
 
 VFS mutations schedule a _debounced_ compile, so the first render is delayed by `debounceMs`. Call `compile()` explicitly to render initial output immediately:
 
@@ -137,11 +137,11 @@ createTypstSetup({
 });
 ```
 
-`formatOnSave` can also be a `(content: string) => void` callback (format, then receive the result, e.g. to persist it). The formatter binds `Shift-Alt-f` by default (override with `keybinding`). It runs the engine's built-in `typstyle` formatter - nothing extra to install.
+`formatOnSave` can also be a `(content: string) => void` callback (format, then receive the result, e.g. to persist it). The formatter binds `Shift-Alt-f` by default (override with `keybinding`). It runs the engine's built-in `typstyle` formatter, with nothing extra to install.
 
 ## Theme switching
 
-Highlighting is computed by the same typst-syntax engine that compiles the document (via the project worker), so tokens are exactly what the parser sees - there is no separate grammar. Tokens carry Typst's stable `typ-*` classes, themed by a built-in `light`/`dark` palette; the editor and hover code blocks share it. Override the `themes` option (or style the `typ-*` classes from your own CSS) to customise colors.
+Highlighting is computed by the same typst-syntax engine that compiles the document (via the project worker), so tokens are exactly what the parser sees, with no separate grammar. Tokens carry Typst's stable `typ-*` classes, themed by a built-in `light`/`dark` palette; the editor and hover code blocks share it. Override the `themes` option (or style the `typ-*` classes from your own CSS) to customise colors.
 
 `createTypstHighlighting` is synchronous (nothing to preload) and returns a controller you keep at the call site. Call `setTheme(view, alias)` to swap the active theme on a mounted `EditorView`:
 
@@ -156,7 +156,7 @@ const setup = createTypstSetup({
 highlighting.setTheme(view, "dark");
 ```
 
-The same controller may be shared across views, but CodeMirror compartments are reconfigured per view - call `setTheme` once per mounted view.
+The same controller may be shared across views, but CodeMirror compartments are reconfigured per view, so call `setTheme` once per mounted view.
 
 ## External sync / Y.js
 
