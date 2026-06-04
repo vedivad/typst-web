@@ -21,6 +21,7 @@
     "./typsten_bg.wasm": "./pkg/typsten_bg.wasm"
   },
   "scripts": {
-    "build": "wasm-pack build --target web"
+    "build": "wasm-pack build --target web --no-opt",
+    "build:opt": "wasm-pack build --target web"
   }
 }

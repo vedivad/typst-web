@@ -42,7 +42,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build wasm
-        run: bun run build:wasm
+        run: bun run build:wasm:opt
 
       - name: Build packages
         run: bun run build
