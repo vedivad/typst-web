@@ -17,7 +17,7 @@ dev: build
     cd demo && bun run dev & \
     wait
 
-test:
+test: build
     bun run test
 
 test-watch:
@@ -47,6 +47,6 @@ release-tag version:
     git push
     git push origin v{{ version }}
 
-release version: release-check-clean test build
+release version: release-check-clean test
     just release-bump {{ version }}
     just release-tag {{ version }}
