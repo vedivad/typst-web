@@ -51,6 +51,12 @@ impl Project {
         self.world.set_entry(path);
     }
 
+    /// Set the date `datetime.today()` returns. WASM has no clock, so JS
+    /// pushes this in (typically the user's local date) before each compile.
+    pub fn set_today(&mut self, year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8) {
+        self.world.set_today(year, month, day, hour, minute, second);
+    }
+
     /// Register a font file (TTF/OTF, or a TTC collection) for compilation,
     /// extending the embedded default fonts with families the engine does not
     /// bundle (e.g. CJK or a custom font).

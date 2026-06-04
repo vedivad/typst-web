@@ -36,6 +36,17 @@ class TypstenWorker {
   }
 
   compile(): ReturnType<Project["compile"]> {
+    // WASM has no clock; refresh the date the world serves to `datetime.today()`
+    // right before each compile, so a long-lived worker doesn't go stale.
+    const now = new Date();
+    this.#p().set_today(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+    );
     return this.#p().compile();
   }
 

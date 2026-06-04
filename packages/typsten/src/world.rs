@@ -41,6 +41,10 @@ pub struct ProjectWorld {
     /// demand (and a transient error keeps the last good preview). Replaced only
     /// on a successful compile.
     document: Mutex<Option<PagedDocument>>,
+    /// The value `World::today` returns. WASM has no clock, so JS pushes this
+    /// in (the user's local date) before each compile. `None` until set —
+    /// `datetime.today()` then surfaces as "unable to get current date".
+    today: Option<Datetime>,
     /// Test-only instrumentation: full parses (`Source::new`) vs incremental
     /// edits (`Source::replace`), so a test can confirm the incremental path.
     #[cfg(test)]
@@ -60,6 +64,7 @@ impl ProjectWorld {
             main: file_id("/main.typ"),
             sources: Mutex::new(HashMap::new()),
             document: Mutex::new(None),
+            today: None,
             #[cfg(test)]
             full_parses: AtomicU32::new(0),
             #[cfg(test)]
@@ -114,6 +119,17 @@ impl ProjectWorld {
     /// Set the entry (main) file that compilation starts from.
     pub fn set_entry(&mut self, path: &str) {
         self.main = file_id(path);
+    }
+
+    /// Set the date returned by `datetime.today()` in user scripts. WASM has
+    /// no clock, so JS pushes this (typically the user's local date) before
+    /// each compile. The Typst `offset` argument is ignored: callers should
+    /// push a value already in whatever timezone the document should see.
+    /// Out-of-range components (e.g. `month = 13`) leave the previous value.
+    pub fn set_today(&mut self, year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8) {
+        if let Some(dt) = Datetime::from_ymd_hms(year, month, day, hour, minute, second) {
+            self.today = Some(dt);
+        }
     }
 
     /// Cache a freshly compiled document so its pages can be rendered on demand.
@@ -229,8 +245,9 @@ impl World for ProjectWorld {
     }
 
     fn today(&self, _offset: Option<i64>) -> Option<Datetime> {
-        // No clock: Rust does no I/O itself. A JS-pushed date can come later.
-        None
+        // No clock: Rust does no I/O itself. JS pushes the date via
+        // `set_today` before each compile; offset is ignored.
+        self.today
     }
 }
 
