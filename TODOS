@@ -1,0 +1,28 @@
+# TODOS
+
+## Incremental rendering: hoist embedded images out of the per-render SVG
+
+Problem: a page with a huge embedded raster image lags on every keystroke, even
+though compile is incremental. typst_svg's base64 encoding is already comemo-cached,
+so the repeat cost is downstream: the inline base64 is rebuilt into the page SVG,
+the multi-MB string is structured-cloned across the worker->main boundary, and the
+browser re-parses + re-decodes the image on innerHTML. Per-page hashing does not help
+(editing text on the page changes the page).
+
+Fix (JS only, no Rust change needed): hoist images in typsten-worker.ts.
+- After render_page, scan the SVG for inline `xlink:href="data:image/...;base64,..."`,
+  replace each with a stable ref (e.g. `xlink:href="typst-img:<hash>"`), and collect
+  { hash -> bytes }. Dedup against a set of hashes already sent so an unchanged image
+  is not re-sent.
+- Return { svg (refs only), newImages }; send image bytes as zero-copy transferables
+  (Comlink transfers ArrayBuffers without cloning).
+- On main: keep a hash -> blobURL cache (URL.createObjectURL), rewrite refs to blob
+  URLs, then insert. Editing text re-sends only the small text SVG; the image crosses
+  the boundary once and is reused as a stable blob URL (no re-transfer, no re-decode).
+
+To fully avoid the browser re-decoding, update pages as their own DOM nodes instead of
+blowing away innerHTML (pairs with per-page-node rendering).
+
+Escalation (only if the inline-base64 SVG reaching the worker is still too big): have
+Rust emit image refs instead of inlining. typst_svg inlines unconditionally, so this is
+a custom render_image path (fork, or upstream a hook).
