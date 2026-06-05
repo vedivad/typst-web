@@ -234,6 +234,16 @@ export class TypstProject {
   }
 
   /**
+   * Drop every font added via `addFont`, resetting to the embedded defaults,
+   * then recompile. The engine has no per-font removal, so to remove a font,
+   * call this and re-`addFont` the ones to keep.
+   */
+  async clearFonts(): Promise<void> {
+    await this.engine.clearFonts();
+    this.scheduleCompile();
+  }
+
+  /**
    * Subscribe to compile results. Late subscribers get `lastResult` synchronously.
    * Returns an unsubscribe function.
    */

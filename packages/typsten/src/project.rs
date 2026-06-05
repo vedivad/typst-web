@@ -65,6 +65,13 @@ impl Project {
         self.world.add_font(bytes)
     }
 
+    /// Drop every font added via `add_font`, resetting to the embedded defaults.
+    /// The engine has no per-font removal, so to remove a font, call this and
+    /// re-`add_font` the ones to keep.
+    pub fn clear_fonts(&mut self) {
+        self.world.clear_fonts();
+    }
+
     /// Compile the project, returning the rendered SVG and typed diagnostics.
     ///
     /// A query, so `&self`: the `Source` cache it touches is interior-mutable.

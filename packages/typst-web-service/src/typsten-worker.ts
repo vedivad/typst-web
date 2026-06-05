@@ -31,6 +31,10 @@ class TypstenWorker {
     return this.#p().add_font(bytes);
   }
 
+  clearFonts(): void {
+    this.#p().clear_fonts();
+  }
+
   remove(path: string): void {
     this.#p().remove_file(path);
   }

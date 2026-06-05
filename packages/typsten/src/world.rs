@@ -117,6 +117,16 @@ impl ProjectWorld {
         families
     }
 
+    /// Drop every font added via `add_font`, resetting to the embedded defaults.
+    /// Typst's `FontBook` has no per-entry removal and `book`/`fonts` are
+    /// index-aligned, so removing a custom font means clearing here and re-adding
+    /// the ones to keep.
+    pub fn clear_fonts(&mut self) {
+        let (book, fonts) = embedded_fonts();
+        self.book = LazyHash::new(book);
+        self.fonts = fonts;
+    }
+
     /// Remove a file from the VFS and its cached `Source`.
     pub fn remove_file(&mut self, path: &str) {
         let id = file_id(path);
