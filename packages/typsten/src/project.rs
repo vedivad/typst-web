@@ -6,9 +6,9 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::compile::{CompileResult, compile_project};
+use crate::compile::{self, CompileResult, compile_project};
 use crate::highlight::HlSpan;
-use crate::ide::{self, CompletionResponse, Hover};
+use crate::ide::{self, ClickJump, CompletionResponse, Hover};
 use crate::world::ProjectWorld;
 
 /// How many compile generations of memoized results `comemo` retains. Trimmed
@@ -122,18 +122,26 @@ impl Project {
     /// Render a single page of the last compiled document to SVG, or `None` if
     /// nothing has compiled yet or the index is out of range.
     pub fn render_page(&self, index: usize) -> Option<String> {
-        self.world.render_page(index)
+        compile::render_page(&self.world, index)
     }
 
     /// Render pages `[start, end)` of the last compiled document to SVG (`end`
     /// clamped to the page count), the on-demand path for a virtualized viewer.
     pub fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
-        self.world.render_pages(start, end)
+        compile::render_pages(&self.world, start, end)
     }
 
     /// Export the last compiled document as PDF bytes, or `None` if nothing has
     /// compiled yet. Returns a `Uint8Array` across the boundary.
     pub fn export_pdf(&self) -> Option<Vec<u8>> {
-        self.world.export_pdf()
+        compile::export_pdf(&self.world)
+    }
+
+    /// Resolve a click at `(x, y)` points on page `index` of the last compiled
+    /// document: a source location to jump the editor to, an internal link target
+    /// to scroll the preview to, or a URL. `None` if nothing compiled, the page is
+    /// out of range, or the click hit nothing actionable.
+    pub fn click_jump(&self, index: usize, x: f64, y: f64) -> Option<ClickJump> {
+        ide::click_jump(&self.world, index, x, y)
     }
 }

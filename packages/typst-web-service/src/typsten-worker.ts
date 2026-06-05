@@ -66,6 +66,14 @@ class TypstenWorker {
     return this.#p().export_pdf();
   }
 
+  clickJump(
+    index: number,
+    x: number,
+    y: number,
+  ): ReturnType<Project["click_jump"]> {
+    return this.#p().click_jump(index, x, y);
+  }
+
   complete(
     path: string,
     cursor: number,

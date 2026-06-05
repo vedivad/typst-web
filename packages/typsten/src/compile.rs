@@ -1,4 +1,5 @@
-//! Compilation orchestration: run the engine and assemble a typed result.
+//! The compiled document: producing it (`compile_project`) and consuming it
+//! (render to SVG, export to PDF). Both read the document the world caches.
 //!
 //! This is plain Rust (no `#[wasm_bindgen]`), so it is the host-testable core
 //! that `cargo test` exercises directly.
@@ -7,6 +8,8 @@ use serde::Serialize;
 use tsify::Tsify;
 use typst::compile;
 use typst::layout::PagedDocument;
+use typst_pdf::{PdfOptions, pdf};
+use typst_svg::svg;
 
 use crate::diagnostics::Diagnostic;
 use crate::world::ProjectWorld;
@@ -56,13 +59,56 @@ pub fn compile_project(world: &ProjectWorld) -> CompileResult {
         ),
     }
 
-    let pages = world
-        .page_sizes()
+    let pages = page_sizes(world)
         .into_iter()
         .map(|(width, height)| PageInfo { width, height })
         .collect();
 
     CompileResult { pages, diagnostics }
+}
+
+/// Width and height (in points) of every page of the cached document.
+fn page_sizes(world: &ProjectWorld) -> Vec<(f64, f64)> {
+    world
+        .with_document(|doc| {
+            doc.pages
+                .iter()
+                .map(|page| (page.frame.width().to_pt(), page.frame.height().to_pt()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Render a single page of the cached document to SVG, or `None` if there is no
+/// cached document or the index is out of range.
+pub fn render_page(world: &ProjectWorld, index: usize) -> Option<String> {
+    world
+        .with_document(|doc| doc.pages.get(index).map(svg))
+        .flatten()
+}
+
+/// Render pages `[start, end)` of the cached document to SVG, clamping `end` to
+/// the page count. Empty if there is no document or the range is empty.
+pub fn render_pages(world: &ProjectWorld, start: usize, end: usize) -> Vec<String> {
+    world
+        .with_document(|doc| {
+            let end = end.min(doc.pages.len());
+            if start >= end {
+                return Vec::new();
+            }
+            doc.pages[start..end].iter().map(svg).collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Export the cached document to PDF bytes, or `None` if there is no cached
+/// document or PDF generation fails. PDF export of an already-laid-out document
+/// effectively never fails, so an error maps to `None` rather than being
+/// surfaced, keeping the boundary as simple as `render_page`.
+pub fn export_pdf(world: &ProjectWorld) -> Option<Vec<u8>> {
+    world
+        .with_document(|doc| pdf(doc, &PdfOptions::default()).ok())
+        .flatten()
 }
 
 #[cfg(test)]
@@ -92,7 +138,7 @@ mod tests {
 
         assert!(!result.pages.is_empty(), "expected at least one page");
         assert!(
-            world.render_page(0).is_some_and(|svg| svg.contains("<svg")),
+            render_page(&world, 0).is_some_and(|svg| svg.contains("<svg")),
             "page 0 should render to svg"
         );
         assert!(
@@ -148,7 +194,7 @@ mod tests {
             result.pages.is_empty(),
             "a first compile that fails has no renderable page"
         );
-        assert!(world.render_page(0).is_none());
+        assert!(render_page(&world, 0).is_none());
         let error = result
             .diagnostics
             .iter()
@@ -167,17 +213,17 @@ mod tests {
         assert_eq!(result.pages.len(), 2, "pagebreak yields two pages");
         assert!(result.pages.iter().all(|p| p.width > 0.0 && p.height > 0.0));
 
-        assert!(world.render_page(0).is_some_and(|s| s.contains("<svg")));
-        assert!(world.render_page(1).is_some());
-        assert!(world.render_page(5).is_none(), "out of range");
+        assert!(render_page(&world, 0).is_some_and(|s| s.contains("<svg")));
+        assert!(render_page(&world, 1).is_some());
+        assert!(render_page(&world, 5).is_none(), "out of range");
 
-        assert_eq!(world.render_pages(0, 2).len(), 2);
+        assert_eq!(render_pages(&world, 0, 2).len(), 2);
         assert_eq!(
-            world.render_pages(0, 99).len(),
+            render_pages(&world, 0, 99).len(),
             2,
             "end clamps to page count"
         );
-        assert!(world.render_pages(2, 2).is_empty(), "empty range");
+        assert!(render_pages(&world, 2, 2).is_empty(), "empty range");
     }
 
     #[test]
@@ -197,7 +243,7 @@ mod tests {
         );
         assert_eq!(result.pages.len(), 1, "last-good pages are kept");
         assert!(
-            world.render_page(0).is_some(),
+            render_page(&world, 0).is_some(),
             "last-good page still renders"
         );
     }
@@ -205,7 +251,38 @@ mod tests {
     #[test]
     fn no_document_renders_nothing() {
         let world = ProjectWorld::new();
-        assert!(world.render_page(0).is_none());
-        assert!(world.render_pages(0, 5).is_empty());
+        assert!(render_page(&world, 0).is_none());
+        assert!(render_pages(&world, 0, 5).is_empty());
+    }
+
+    #[test]
+    fn edit_is_reflected() {
+        let mut world = world_with("main.typ", &[("main.typ", "= Alpha")]);
+        compile_project(&world);
+        let a = render_page(&world, 0).expect("page a");
+        world.set_file("main.typ", b"= Beta".to_vec());
+        compile_project(&world);
+        let b = render_page(&world, 0).expect("page b");
+        assert_ne!(a, b, "an edit should change the rendered output");
+    }
+
+    #[test]
+    fn unchanged_recompile_is_stable() {
+        let world = world_with("main.typ", &[("main.typ", "= Hello")]);
+        let r1 = compile_project(&world);
+        let first = render_page(&world, 0).expect("page");
+        let r2 = compile_project(&world);
+        let second = render_page(&world, 0).expect("page");
+        assert_eq!(first, second, "unchanged recompile renders identically");
+        assert!(r1.diagnostics.is_empty() && r2.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn exports_pdf_after_compile() {
+        let world = world_with("main.typ", &[("main.typ", "= Hello")]);
+        assert!(export_pdf(&world).is_none(), "no document before compile");
+        compile_project(&world);
+        let bytes = export_pdf(&world).expect("pdf bytes after compile");
+        assert!(bytes.starts_with(b"%PDF-"), "valid PDF header");
     }
 }

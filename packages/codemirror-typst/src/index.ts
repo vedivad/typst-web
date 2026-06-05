@@ -23,6 +23,7 @@ import type { TypstHoverOptions } from "./hover.js";
 import { createTypstHover } from "./hover.js";
 
 export type {
+  ClickJump,
   CompileListener,
   CompileResult,
   Completion,

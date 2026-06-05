@@ -5,6 +5,7 @@ import { byteOffsetsToCm, cmOffsetsToByte, cmOffsetToByte } from "./coords.js";
 import { normalizePath, type Path } from "./identifiers.js";
 import { createPackageLoader, type PackageLoader } from "./packages.js";
 import type {
+  ClickJump,
   CompileResult,
   CompletionResponse,
   HlSpan,
@@ -321,6 +322,22 @@ export class TypstProject {
    */
   exportPdf(): Promise<Uint8Array | undefined> {
     return this.engine.exportPdf();
+  }
+
+  /**
+   * Resolve a click at `(x, y)` points on page `index` of the last compile into
+   * where it should take the user: a source location (file/line/column) for a
+   * click on text, an internal link target (page + point in points) to scroll to,
+   * or a URL. `undefined` if nothing compiled, the page is out of range, or the
+   * click hit nothing actionable. Powers click-to-source and clickable links,
+   * which the SVG can't express on its own.
+   */
+  clickJump(
+    index: number,
+    x: number,
+    y: number,
+  ): Promise<ClickJump | undefined> {
+    return this.engine.clickJump(index, x, y);
   }
 
   /** Completions at a CodeMirror `offset` in `path`, using `source` as the live buffer. */

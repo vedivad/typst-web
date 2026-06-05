@@ -14,7 +14,7 @@ mod world;
 pub use compile::{CompileResult, PageInfo};
 pub use diagnostics::{Diagnostic, Location, Severity};
 pub use highlight::HlSpan;
-pub use ide::{Completion, CompletionKind, CompletionResponse, Hover, HoverKind};
+pub use ide::{ClickJump, Completion, CompletionKind, CompletionResponse, Hover, HoverKind};
 pub use project::Project;
 
 use wasm_bindgen::prelude::*;

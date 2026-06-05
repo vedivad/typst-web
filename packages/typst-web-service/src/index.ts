@@ -8,6 +8,7 @@ export type {
 } from "./project.js";
 export { TypstProject } from "./project.js";
 export type {
+  ClickJump,
   CompileResult,
   Completion,
   CompletionKind,

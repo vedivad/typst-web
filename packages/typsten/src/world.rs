@@ -17,8 +17,6 @@ use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
-use typst_pdf::{PdfOptions, pdf};
-use typst_svg::svg;
 
 use crate::vfs::{Vfs, file_id};
 
@@ -155,43 +153,12 @@ impl ProjectWorld {
         *self.document.lock() = Some(document);
     }
 
-    /// Width and height (in points) of each page of the cached document.
-    pub fn page_sizes(&self) -> Vec<(f64, f64)> {
-        self.document.lock().as_ref().map_or_else(Vec::new, |doc| {
-            doc.pages
-                .iter()
-                .map(|page| (page.frame.width().to_pt(), page.frame.height().to_pt()))
-                .collect()
-        })
-    }
-
-    /// Render a single page of the cached document to SVG, or `None` if there is
-    /// no cached document or the index is out of range.
-    pub fn render_page(&self, index: usize) -> Option<String> {
-        self.document.lock().as_ref()?.pages.get(index).map(svg)
-    }
-
-    /// Render pages `[start, end)` of the cached document to SVG, clamping `end`
-    /// to the page count. Empty if there is no document or the range is empty.
-    pub fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
-        let document = self.document.lock();
-        let Some(document) = document.as_ref() else {
-            return Vec::new();
-        };
-        let end = end.min(document.pages.len());
-        if start >= end {
-            return Vec::new();
-        }
-        document.pages[start..end].iter().map(svg).collect()
-    }
-
-    /// Export the cached document to PDF bytes, or `None` if there is no cached
-    /// document or PDF generation fails. PDF export of an already-laid-out
-    /// document effectively never fails, so an error is mapped to `None` rather
-    /// than surfaced, keeping the boundary as simple as `render_page`.
-    pub fn export_pdf(&self) -> Option<Vec<u8>> {
-        let document = self.document.lock();
-        pdf(document.as_ref()?, &PdfOptions::default()).ok()
+    /// Run `f` with the last successfully compiled document, or return `None` if
+    /// nothing has compiled yet. The one read accessor other modules go through
+    /// to render pages, export, or resolve clicks, so the cached document stays
+    /// private to the world.
+    pub fn with_document<R>(&self, f: impl FnOnce(&PagedDocument) -> R) -> Option<R> {
+        self.document.lock().as_ref().map(f)
     }
 
     /// `(full_parses, incremental_edits)` since construction. Test instrumentation.
@@ -312,28 +279,6 @@ mod tests {
     }
 
     #[test]
-    fn edit_is_reflected() {
-        let mut world = project("= Alpha");
-        compile_project(&world);
-        let a = world.render_page(0).expect("page a");
-        world.set_file("main.typ", b"= Beta".to_vec());
-        compile_project(&world);
-        let b = world.render_page(0).expect("page b");
-        assert_ne!(a, b, "an edit should change the rendered output");
-    }
-
-    #[test]
-    fn unchanged_recompile_is_stable() {
-        let world = project("= Hello");
-        let r1 = compile_project(&world);
-        let first = world.render_page(0).expect("page");
-        let r2 = compile_project(&world);
-        let second = world.render_page(0).expect("page");
-        assert_eq!(first, second, "unchanged recompile renders identically");
-        assert!(r1.diagnostics.is_empty() && r2.diagnostics.is_empty());
-    }
-
-    #[test]
     fn edits_use_incremental_reparse() {
         let mut world = project("#let x = 1\n#x");
 
@@ -356,14 +301,5 @@ mod tests {
             1,
             "no extra full parse on recompile"
         );
-    }
-
-    #[test]
-    fn exports_pdf_after_compile() {
-        let world = project("= Hello");
-        assert!(world.export_pdf().is_none(), "no document before compile");
-        compile_project(&world);
-        let pdf = world.export_pdf().expect("pdf bytes after compile");
-        assert!(pdf.starts_with(b"%PDF-"), "valid PDF header");
     }
 }
