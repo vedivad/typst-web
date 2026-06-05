@@ -22,10 +22,10 @@ use typst::syntax::{FileId, VirtualPath};
 /// paths are project-rooted and normalized by `VirtualPath::new`, so `"main.typ"` and
 /// `"/main.typ"` address the same file.
 pub fn file_id(path: &str) -> FileId {
-    if path.starts_with('@') {
-        if let Some((spec, vpath)) = parse_package_path(path) {
-            return FileId::new(Some(spec), VirtualPath::new(vpath));
-        }
+    if path.starts_with('@')
+        && let Some((spec, vpath)) = parse_package_path(path)
+    {
+        return FileId::new(Some(spec), VirtualPath::new(vpath));
     }
     FileId::new(None, VirtualPath::new(path))
 }

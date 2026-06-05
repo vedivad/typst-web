@@ -145,3 +145,9 @@ impl Project {
         ide::click_jump(&self.world, index, x, y)
     }
 }
+
+impl Default for Project {
+    fn default() -> Self {
+        Self::new()
+    }
+}
