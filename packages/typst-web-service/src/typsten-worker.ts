@@ -27,8 +27,8 @@ class TypstenWorker {
     this.#p().set_entry(path);
   }
 
-  addFont(bytes: Uint8Array): void {
-    this.#p().add_font(bytes);
+  addFont(bytes: Uint8Array): string[] {
+    return this.#p().add_font(bytes);
   }
 
   remove(path: string): void {

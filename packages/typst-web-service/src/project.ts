@@ -221,10 +221,16 @@ export class TypstProject {
    * it, then recompile. The engine bundles default body, math, and monospace
    * fonts; use this to add families it does not ship (e.g. CJK or a custom
    * font). Fonts persist for the project's lifetime.
+   *
+   * Returns the canonical family name of each added face, the name Typst
+   * groups and matches by (width/weight/style folded into the variant, so e.g.
+   * "Roboto Condensed" reports as "Roboto"). Use it to label the font the way
+   * `#set text(font: ...)` expects, instead of parsing the name table yourself.
    */
-  async addFont(bytes: Uint8Array): Promise<void> {
-    await this.engine.addFont(bytes);
+  async addFont(bytes: Uint8Array): Promise<string[]> {
+    const families = await this.engine.addFont(bytes);
     this.scheduleCompile();
+    return families;
   }
 
   /**

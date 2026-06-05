@@ -42,7 +42,7 @@ pub struct ProjectWorld {
     /// on a successful compile.
     document: Mutex<Option<PagedDocument>>,
     /// The value `World::today` returns. WASM has no clock, so JS pushes this
-    /// in (the user's local date) before each compile. `None` until set —
+    /// in (the user's local date) before each compile. `None` until set,
     /// `datetime.today()` then surfaces as "unable to get current date".
     today: Option<Datetime>,
     /// Test-only instrumentation: full parses (`Source::new`) vs incremental
@@ -101,12 +101,20 @@ impl ProjectWorld {
     /// Register every face in a font file (TTF/OTF, or a TTC collection),
     /// extending the embedded default fonts. Use it to add families the engine
     /// does not bundle, such as other scripts (CJK) or a brand font.
-    pub fn add_font(&mut self, bytes: Vec<u8>) {
+    ///
+    /// Returns the canonical family of each added face, the same name Typst
+    /// groups by (width/weight/style modifiers folded into the variant, so e.g.
+    /// "Roboto Condensed" reports as "Roboto"), so callers can label fonts the
+    /// way `#set text(font: ...)` expects without re-parsing the name table.
+    pub fn add_font(&mut self, bytes: Vec<u8>) -> Vec<String> {
         let buffer = Bytes::new(bytes);
+        let mut families = Vec::new();
         for font in Font::iter(buffer) {
+            families.push(font.info().family.to_string());
             self.book.push(font.info().clone());
             self.fonts.push(font);
         }
+        families
     }
 
     /// Remove a file from the VFS and its cached `Source`.
