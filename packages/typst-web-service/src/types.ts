@@ -6,6 +6,7 @@ export type {
   Completion,
   CompletionKind,
   CompletionResponse,
+  CursorJump,
   Diagnostic,
   HlSpan,
   Hover,

@@ -11,6 +11,7 @@ import {
   typstFilePath,
   typstThemes,
 } from "@vedivad/codemirror-typst";
+import { pageScale, PreviewNavigator } from "@vedivad/typst-web-service";
 import { basicSetup, EditorView } from "codemirror";
 import { updateDiagnostics } from "./diagnostics";
 import { files } from "./files";
@@ -27,7 +28,7 @@ const themeToggleBtn = document.getElementById(
 ) as HTMLButtonElement;
 const exportPdfBtn = document.getElementById("export-pdf") as HTMLButtonElement;
 
-// --- Typst engine (one wasm) ---
+// --- Typst engine ---
 
 const project = await TypstProject.create({
   autoCompile: { debounceMs: 100, maxWaitMs: 500 },
@@ -41,18 +42,25 @@ let activeFile = project.files[0];
 let activeView: EditorView | null = null;
 let colorTheme: "light" | "dark" = "light";
 
-// --- Compile results → preview + diagnostics panel ---
+// --- Compile results -> preview + diagnostics panel ---
+
+// Drives click navigation: text jumps to its editor source, while internal links
+// (scroll) and URLs (open) use the built-in defaults. The view reads the page
+// <svg>s live, so rendering just sets innerHTML with nothing to register.
+const navigator = PreviewNavigator.create({
+  project,
+  scroller: previewEl,
+  pages: () => previewEl.querySelectorAll(".svg-page"),
+  onSource: jumpToSource,
+  margin: 16,
+});
 
 project.onCompile(async (result) => {
   updateDiagnostics(diagnosticsEl, result.diagnostics);
-  // Render every page (a real app would render only the visible range).
   const pages = await project.renderedPages(0, result.pages.length);
-  previewEl.innerHTML = `<div class="svg-container">${pages
-    .map(
-      (page) =>
-        `<div class="svg-page" data-page="${page.index + 1}">${page.svg}</div>`,
-    )
-    .join("")}</div>`;
+  previewEl.innerHTML = pages
+    .map((page) => `<div class="svg-page">${page.svg}</div>`)
+    .join("");
 });
 
 // --- Editor extensions ---
@@ -74,7 +82,49 @@ const typstSetup = createTypstSetup({
   formatter: { formatOnSave: true },
 });
 
-const sharedExtensions = [basicSetup, ...typstSetup];
+// Opt-in: Ctrl/Cmd+click in the editor centers the preview on the source position
+// and flashes a circle there, without interfering with normal scrolling.
+const revealInPreview = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) return false;
+    const offset = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    if (offset == null) return false;
+    void navigator
+      .scrollToSource(
+        view.state.facet(typstFilePath),
+        view.state.doc.toString(),
+        offset,
+        { align: "center" },
+      )
+      .then((at) => {
+        if (at) flashReveal(at.page, at.x, at.y);
+      });
+    return false; // let CodeMirror place the cursor as usual
+  },
+});
+
+// Flash a circle at a page point, anchored in the page element so it stays put during scroll.
+function flashReveal(page: number, xPt: number, yPt: number) {
+  const pageEl = previewEl.querySelectorAll<HTMLElement>(".svg-page")[page];
+  const svg = pageEl?.querySelector("svg");
+  if (!pageEl || !svg) return;
+  const scale = pageScale(
+    svg.getBoundingClientRect().width,
+    svg.viewBox.baseVal.width,
+  );
+  const dot = document.createElement("div");
+  dot.className = "reveal-dot";
+  // jump_from_cursor returns the baseline-left origin; lift to sit on the glyphs.
+  const LIFT_PT = 5;
+  dot.style.left = `${xPt * scale}px`;
+  dot.style.top = `${(yPt - LIFT_PT) * scale}px`;
+  dot.addEventListener("animationend", () => {
+    dot.remove();
+  });
+  pageEl.append(dot);
+}
+
+const sharedExtensions = [basicSetup, ...typstSetup, revealInPreview];
 
 function syncTheme(view: EditorView) {
   document.documentElement.dataset.theme = colorTheme;
@@ -113,6 +163,18 @@ function switchTab(path: string) {
 
   syncTheme(activeView);
   rerenderTabs();
+}
+
+// Move the cursor to a 1-based line/column in `file`, switching tabs first.
+function jumpToSource(file: string, line: number, column: number) {
+  if (!project.files.includes(file)) return;
+  if (activeFile !== file) switchTab(file);
+  const view = activeView;
+  if (!view) return;
+  const docLine = view.state.doc.line(Math.min(line, view.state.doc.lines));
+  const pos = Math.min(docLine.from + (column - 1), docLine.to);
+  view.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+  view.focus();
 }
 
 function rerenderTabs() {

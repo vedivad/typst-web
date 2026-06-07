@@ -12,7 +12,7 @@ const project = await TypstProject.create({
 project.onCompile(async (result) => {
   if (result.pages.length === 0) return;
   const svg = await project.renderPage(0);
-  previewEl.innerHTML = `<div class="svg-container">${svg ?? ""}</div>`;
+  previewEl.innerHTML = svg ?? "";
 });
 
 const typstSetup = createTypstSetup({

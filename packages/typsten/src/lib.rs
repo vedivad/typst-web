@@ -8,6 +8,7 @@ mod format;
 mod highlight;
 mod ide;
 mod project;
+mod render;
 mod vfs;
 mod world;
 

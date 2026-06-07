@@ -81,11 +81,11 @@ pub struct Hover {
 /// Where a click in the preview should take the user, resolved by Typst from the
 /// laid-out frame under the cursor (`typst_ide::jump_from_click`).
 ///
-/// - `Source` — the click was over text; jump the editor to that 1-based source
+/// - `Source`, the click was over text; jump the editor to that 1-based source
 ///   location (file/line/column, matching `Diagnostic`'s `Location`).
-/// - `Position` — the click was over an internal link (e.g. an `#outline()`
+/// - `Position`, the click was over an internal link (e.g. an `#outline()`
 ///   entry); scroll the preview to that page and point (in points).
-/// - `Url` — the click was over an external link.
+/// - `Url`, the click was over an external link.
 #[derive(Serialize, Tsify, Clone, PartialEq, Debug)]
 #[tsify(into_wasm_abi)]
 #[serde(tag = "kind", rename_all = "lowercase")]
@@ -103,6 +103,18 @@ pub enum ClickJump {
     Url {
         url: String,
     },
+}
+
+/// Where a source cursor renders in the laid-out document, from
+/// `typst_ide::jump_from_cursor`: a 0-based `page` and a `point` (in points). The
+/// reverse of `ClickJump::Position`, for scrolling the preview to follow the
+/// editor cursor.
+#[derive(Serialize, Tsify, Clone, PartialEq, Debug)]
+#[tsify(into_wasm_abi)]
+pub struct CursorJump {
+    pub page: usize,
+    pub x: f64,
+    pub y: f64,
 }
 
 /// Completions at `cursor` (a byte offset) in `path`. `explicit` is `true` when
@@ -163,6 +175,25 @@ pub fn click_jump(world: &ProjectWorld, index: usize, x: f64, y: f64) -> Option<
                     },
                 },
             )
+        })
+        .flatten()
+}
+
+/// Resolve a `cursor` (byte offset) in `path` to where it renders in the cached
+/// document: a 0-based page and point (in points), or `None` if there is no
+/// cached document, the file is absent, or the cursor maps onto no text.
+pub fn jump_from_cursor(world: &ProjectWorld, path: &str, cursor: usize) -> Option<CursorJump> {
+    let source = world.source(file_id(path)).ok()?;
+    world
+        .with_document(|document| {
+            let pos = typst_ide::jump_from_cursor(document, &source, cursor)
+                .into_iter()
+                .next()?;
+            Some(CursorJump {
+                page: pos.page.get().saturating_sub(1),
+                x: pos.point.x.to_pt(),
+                y: pos.point.y.to_pt(),
+            })
         })
         .flatten()
 }
@@ -291,5 +322,24 @@ mod tests {
             }
             other => panic!("expected a Source jump on the heading, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn jumps_from_cursor_to_its_rendered_page() {
+        let src = "#outline()\n#pagebreak()\n\n= Test Page 1\nbody text\n\n#pagebreak()\n\n= Test Page 2\nbody";
+        let world = world_with("main.typ", &[("main.typ", src)]);
+        compile_project(&world);
+
+        // A cursor in the `body text` on page 2 (index 1) maps to where it renders.
+        // (Body text, unlike a heading, isn't duplicated into the outline.)
+        let cursor = src.find("body text").expect("body text") + 2;
+        match jump_from_cursor(&world, "main.typ", cursor) {
+            Some(CursorJump { page, .. }) => assert_eq!(page, 1),
+            other => panic!("expected a cursor jump, got {other:?}"),
+        }
+
+        // A cursor that is not over rendered text (inside the `#outline()` call)
+        // maps nowhere.
+        assert!(jump_from_cursor(&world, "main.typ", 3).is_none());
     }
 }

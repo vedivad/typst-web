@@ -6,9 +6,10 @@
 
 use wasm_bindgen::prelude::*;
 
-use crate::compile::{self, CompileResult, compile_project};
+use crate::compile::{CompileResult, compile_project};
 use crate::highlight::HlSpan;
-use crate::ide::{self, ClickJump, CompletionResponse, Hover};
+use crate::ide::{self, ClickJump, CompletionResponse, CursorJump, Hover};
+use crate::render;
 use crate::world::ProjectWorld;
 
 /// How many compile generations of memoized results `comemo` retains. Trimmed
@@ -122,19 +123,19 @@ impl Project {
     /// Render a single page of the last compiled document to SVG, or `None` if
     /// nothing has compiled yet or the index is out of range.
     pub fn render_page(&self, index: usize) -> Option<String> {
-        compile::render_page(&self.world, index)
+        render::render_page(&self.world, index)
     }
 
     /// Render pages `[start, end)` of the last compiled document to SVG (`end`
     /// clamped to the page count), the on-demand path for a virtualized viewer.
     pub fn render_pages(&self, start: usize, end: usize) -> Vec<String> {
-        compile::render_pages(&self.world, start, end)
+        render::render_pages(&self.world, start, end)
     }
 
     /// Export the last compiled document as PDF bytes, or `None` if nothing has
     /// compiled yet. Returns a `Uint8Array` across the boundary.
     pub fn export_pdf(&self) -> Option<Vec<u8>> {
-        compile::export_pdf(&self.world)
+        render::export_pdf(&self.world)
     }
 
     /// Resolve a click at `(x, y)` points on page `index` of the last compiled
@@ -143,6 +144,13 @@ impl Project {
     /// out of range, or the click hit nothing actionable.
     pub fn click_jump(&self, index: usize, x: f64, y: f64) -> Option<ClickJump> {
         ide::click_jump(&self.world, index, x, y)
+    }
+
+    /// Resolve a `cursor` (byte offset) in `path` to where it renders in the last
+    /// compiled document (0-based page + point in points), or `None`. The reverse
+    /// of `click_jump`, for scrolling the preview to follow the editor cursor.
+    pub fn jump_from_cursor(&self, path: &str, cursor: usize) -> Option<CursorJump> {
+        ide::jump_from_cursor(&self.world, path, cursor)
     }
 }
 

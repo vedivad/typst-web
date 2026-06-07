@@ -348,39 +348,76 @@ header p {
   font-size: 0.9em;
 }
 
+/* The preview pane is itself the scroller; pages (or a single SVG) stack inside. */
 .preview {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-left: 1px solid var(--border);
-  background: #fff;
-}
-
-.preview .svg-container {
-  flex: 1;
-  overflow: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
   padding: 1rem;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: #fff;
 }
 
-.preview .svg-container svg {
+.preview svg {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
 .preview .svg-page {
+  position: relative; /* anchor for the reveal-dot */
   width: min(100%, 860px);
   background: #fff;
   border: 1px solid #ddd;
 }
 
+/* Flashed where a Ctrl/Cmd+click in the editor maps to in the preview. */
+.reveal-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px; /* center on the point */
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.35);
+  border: 2px solid rgb(37, 99, 235);
+  pointer-events: none;
+  animation: reveal-pulse 0.8s ease-out forwards;
+}
+
+@keyframes reveal-pulse {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
 .preview .svg-page::before {
   content: none;
+}
+
+/* Internal links (e.g. #outline() entries) render as href-less <a> (URL links
+   keep their href); mark them on hover by tinting the transparent hit-rect typst
+   draws on top of the glyphs. */
+.preview .svg-page a:not([href]) {
+  cursor: pointer;
+}
+
+.preview .svg-page a:not([href]) rect {
+  transition: fill 0.1s ease;
+}
+
+.preview .svg-page a:not([href]):hover rect {
+  fill: rgba(250, 204, 21, 0.45);
 }
 
 .preview .error {

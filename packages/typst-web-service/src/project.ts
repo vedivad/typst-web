@@ -8,6 +8,7 @@ import type {
   ClickJump,
   CompileResult,
   CompletionResponse,
+  CursorJump,
   HlSpan,
   Hover,
   RenderedSvgPage,
@@ -338,6 +339,19 @@ export class TypstProject {
     y: number,
   ): Promise<ClickJump | undefined> {
     return this.engine.clickJump(index, x, y);
+  }
+
+  /** Resolve a CodeMirror `offset` in `path` (with `source` as the live buffer)
+   *  to where it renders in the last compile: a 0-based page and point (in
+   *  points), or `undefined` if the cursor maps nowhere. Reverse of `clickJump`. */
+  async jumpFromCursor(
+    path: Path,
+    source: string,
+    offset: number,
+  ): Promise<CursorJump | undefined> {
+    const p = normalizePath(path);
+    await this.writeText(p, source);
+    return this.engine.jumpFromCursor(p, cmOffsetToByte(source, offset));
   }
 
   /** Completions at a CodeMirror `offset` in `path`, using `source` as the live buffer. */

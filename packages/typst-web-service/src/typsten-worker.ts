@@ -74,6 +74,13 @@ class TypstenWorker {
     return this.#p().click_jump(index, x, y);
   }
 
+  jumpFromCursor(
+    path: string,
+    cursor: number,
+  ): ReturnType<Project["jump_from_cursor"]> {
+    return this.#p().jump_from_cursor(path, cursor);
+  }
+
   complete(
     path: string,
     cursor: number,
