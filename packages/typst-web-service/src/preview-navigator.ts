@@ -204,5 +204,6 @@ function rootSvg(el: Element | null | undefined): SVGSVGElement | null {
 }
 
 function openInNewTab(url: string) {
-  window.open(url, "_blank", "noopener,noreferrer");
+  const href = URL.canParse(url) ? url : `https://${url}`;
+  window.open(href, "_blank", "noopener,noreferrer");
 }
