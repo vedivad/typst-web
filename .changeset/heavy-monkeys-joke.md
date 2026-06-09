@@ -1,5 +1,5 @@
 ---
-"@vedivad/codemirror-typst": minor
+"@vedivad/codemirror-typst": patch
 ---
 
 Remove duplicate lezer dependency in codemirror-typst
