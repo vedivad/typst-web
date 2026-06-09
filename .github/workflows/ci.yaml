@@ -9,6 +9,24 @@ on:
       - synchronize
 
 jobs:
+  # Cheap and independent of the wasm build, so it runs as its own parallel job
+  # rather than blocking on build-and-test. Config lives in .codebook.toml.
+  spellcheck:
+    runs-on: ubuntu-latest
+    name: Spellcheck
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install codebook-lsp
+        uses: taiki-e/install-action@v2
+        with:
+          tool: codebook-lsp
+
+      - name: Spellcheck
+        run: codebook-lsp lint .
+
   # Single job: the Rust to wasm build dominates wall-clock and the JS build and
   # tests depend on its output, so building once and reusing it beats fanning
   # out into parallel jobs that each rebuild the wasm.
