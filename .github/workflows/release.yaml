@@ -48,10 +48,26 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Built unconditionally: the publish step needs the wasm and dist present.
-      # When there are only pending changesets, the action just opens the
-      # version PR and the build is harmless.
+      # The wasm-opt pass in build:wasm:opt dominates wall-clock (minutes) while
+      # the compile is seconds. Its output is a pure function of the Rust sources,
+      # the locked deps, and the toolchain, so cache the built pkg/ keyed on those.
+      # JS/doc-only releases (the common case) restore it and skip the build.
+      - name: Capture rustc version
+        id: rustc
+        run: echo "version=$(rustc --version | tr ' ()' '___')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache built wasm (pkg/)
+        id: wasm-pkg
+        uses: actions/cache@v4
+        with:
+          path: packages/typsten/pkg
+          key: typsten-pkg-${{ runner.os }}-${{ steps.rustc.outputs.version }}-${{ hashFiles('packages/typsten/src/**', 'packages/typsten/Cargo.toml', 'packages/typsten/Cargo.lock') }}
+
+      # On a cache miss this builds and the cache action saves pkg/ in its post
+      # step. On a hit the optimized wasm is already restored, so wasm-opt (the
+      # slow part) is skipped entirely.
       - name: Build wasm
+        if: steps.wasm-pkg.outputs.cache-hit != 'true'
         run: bun run build:wasm:opt
 
       - name: Build packages
