@@ -32,6 +32,10 @@ lint:
 check:
     bun run check
 
+# Spell-check docs and TS sources (config in .codebook.toml).
+spellcheck:
+    codebook-lsp lint .
+
 # Record a changeset describing your change (commit the file with your PR).
 changeset:
     bunx changeset
