@@ -32,7 +32,7 @@
     "dev": "tsup --watch"
   },
   "dependencies": {
-    "@lezer/highlight": "^1.2.0",
+    "@lezer/highlight": "^1.2.3",
     "@vedivad/typst-web-service": "workspace:^"
   },
   "devDependencies": {
@@ -41,7 +41,6 @@
     "@codemirror/lint": "^6.9.5",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.16",
-    "@lezer/highlight": "^1.2.3",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3"
   },
