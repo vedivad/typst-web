@@ -16,9 +16,13 @@
     "lint": "oxlint .",
     "check": "bun run format:check && bun run lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "oxfmt": "^0.42.0",
     "oxlint": "^1.66.0",
     "typescript": "^5.9.3",

@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # create the version PR and git tags
+      pull-requests: write # open/update the "Version Packages" PR
+      id-token: write # npm provenance
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/typsten
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Built unconditionally: the publish step needs the wasm and dist present.
+      # When there are only pending changesets, the action just opens the
+      # version PR and the build is harmless.
+      - name: Build wasm
+        run: bun run build:wasm:opt
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Run tests
+        run: bun run test
+
+      # If there are changesets, opens/updates a "Version Packages" PR.
+      # If there are none (that PR was merged), runs the `release` script to
+      # publish. Changesets replaces the `workspace:` ranges with real versions.
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: bun run version-packages
+          publish: bun run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
