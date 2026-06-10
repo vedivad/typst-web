@@ -74,7 +74,7 @@ jobs:
         run: bun run build
 
       - name: Format & lint
-        run: bun run check
+        run: bun run lint
 
       - name: Run tests
         run: bun run test

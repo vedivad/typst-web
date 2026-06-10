@@ -124,7 +124,7 @@ describe("typstThemes", () => {
       extensions: [themes.extension],
     });
     expect(state).toBeTruthy();
-    expect(themes.set).toBeTypeOf("function");
+    expect(typeof themes.set).toBe("function");
   });
 
   it("accepts { editor?, tokens } descriptors (bridging the tokens)", () => {

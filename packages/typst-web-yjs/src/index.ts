@@ -79,7 +79,7 @@ export function syncYTextToTypstProject(
 
   const sync = new SerializedSync(async () => {
     try {
-      await project.setText(path, ytext.toString());
+      await project.setText(path, ytext.toJSON());
     } catch (error) {
       onError?.({ error, operation: "setText", path });
     }
@@ -148,7 +148,7 @@ export function syncYMapToTypstProject<V extends Y.Text | Uint8Array>(
   };
 
   const snapshotValue = (value: Y.Text | Uint8Array): string | Uint8Array =>
-    value instanceof Y.Text ? value.toString() : value;
+    value instanceof Y.Text ? value.toJSON() : value;
 
   const sync = new SerializedSync(async () => {
     if (dirtyAll) {
@@ -181,7 +181,7 @@ export function syncYMapToTypstProject<V extends Y.Text | Uint8Array>(
         removed.push(path);
       } else if (value instanceof Y.Text) {
         observeText(path, value);
-        textChanges[path] = value.toString();
+        textChanges[path] = value.toJSON();
       } else {
         binaryChanges[path] = value;
       }
