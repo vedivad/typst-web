@@ -50,7 +50,13 @@ export function diffChanges(oldStr: string, newStr: string): DiffChange[] {
   return [{ from, to: oldEnd, insert: newStr.slice(from, newEnd) }];
 }
 
-async function runFormat(
+/**
+ * Format the active file of `view` via the project's engine and dispatch the
+ * minimal change set (preserving cursor/undo). Backs the format keybinding, and
+ * is exported so a toolbar button can trigger the same path: the caller already
+ * holds the `view` and `project`, e.g. `onClick={() => runFormat(view, project)}`.
+ */
+export async function runFormat(
   view: EditorView,
   project: TypstProject,
   onFormatted?: () => void,
