@@ -1,6 +1,6 @@
 {
   "name": "@vedivad/typst-web-yjs",
-  "version": "0.18.7",
+  "version": "0.18.8",
   "description": "Y.js adapters for syncing shared Typst documents into TypstProject",
   "license": "MIT",
   "repository": {
