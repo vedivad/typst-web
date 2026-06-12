@@ -13,7 +13,7 @@ import {
 } from "./diagnostics-utils.js";
 import { typstFilePath } from "./facets.js";
 import type { TypstFormatterOptions } from "./formatter.js";
-import { createTypstFormatter } from "./formatter.js";
+import { createTypstFormatter, runFormat } from "./formatter.js";
 import {
   defaultLightTheme,
   typstHighlighting,
@@ -67,6 +67,7 @@ export {
   createTypstHover,
   diagnosticLocation,
   groupDiagnosticsByFile,
+  runFormat,
   toCMDiagnostic,
   typstCompletionSource,
   typstFilePath,
@@ -102,7 +103,9 @@ export interface TypstSetupOptions {
    * `typstThemes(...).extension` to switch themes live.
    */
   theme?: Extension;
-  /** Formatter config (the project is taken from this setup). Omit to disable. */
+  /** Formatter config (the project is taken from this setup). Omit to disable.
+   * To trigger formatting from a button, call `runFormat(view, project)`.
+   */
   formatter?: Omit<TypstFormatterOptions, "project">;
 }
 
